@@ -100,6 +100,28 @@ class AttentionCapture:
 # Utilities
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def trim_generated(gen_ids, tokenizer):
+    """
+    Strip EOS, pad, and any trailing special tokens from generated ids.
+    Returns trimmed tensor and the trim length.
+    """
+    eos_id = tokenizer.eos_token_id
+    pad_id = tokenizer.pad_token_id
+    stop_ids = set()
+    if eos_id is not None:
+        stop_ids.add(eos_id)
+    if pad_id is not None:
+        stop_ids.add(pad_id)
+
+    trim_len = len(gen_ids)
+    for i, tid in enumerate(gen_ids):
+        if tid.item() in stop_ids:
+            trim_len = i
+            break
+
+    return gen_ids[:trim_len], trim_len
+
+
 def save_frames_from_tensors(video_frames, frames_dir):
     """Save a list of frame tensors (CHW, 0-1 or 0-255) as PNGs."""
     frames_dir.mkdir(parents=True, exist_ok=True)
@@ -244,7 +266,12 @@ def run_qwen2_5_vl(args, output_dir):
             **inputs, max_new_tokens=args.max_tokens, output_attentions=True,
         )
 
-    gen_ids  = gen_out[0, input_ids.shape[0]:]
+    gen_ids_raw = gen_out[0, input_ids.shape[0]:]
+
+    # Trim EOS/pad
+    gen_ids, trim_len = trim_generated(gen_ids_raw, processor.tokenizer)
+    print(f"  Trimmed output: {len(gen_ids_raw)} -> {trim_len} tokens")
+
     gen_toks = [processor.tokenizer.decode([t.item()]) for t in gen_ids]
     gen_text = processor.batch_decode(
         [gen_ids], skip_special_tokens=True, clean_up_tokenization_spaces=False
@@ -260,7 +287,7 @@ def run_qwen2_5_vl(args, output_dir):
         has_compression=False,
         num_layers=num_layers, num_heads=num_heads,
     )
-    return capturer, gen_toks, gen_text, meta
+    return capturer, gen_toks, gen_text, meta, trim_len
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -405,7 +432,11 @@ def run_videollama3(args, output_dir):
     # so the returned tensor's prefix length doesn't match embed_len.
     # Use the hook capture count to reliably find the new tokens.
     n_new = len(capturer.captures) // capturer.num_layers
-    gen_ids = gen_out[0, -n_new:] if n_new > 0 else gen_out[0, :0]
+    gen_ids_raw = gen_out[0, -n_new:] if n_new > 0 else gen_out[0, :0]
+
+    # Trim EOS/pad
+    gen_ids, trim_len = trim_generated(gen_ids_raw, tokenizer)
+    print(f"  Trimmed output: {len(gen_ids_raw)} -> {trim_len} tokens")
 
     gen_toks = [tokenizer.decode([t.item()]) for t in gen_ids]
     gen_text = tokenizer.decode(gen_ids, skip_special_tokens=True).strip()
@@ -424,7 +455,7 @@ def run_videollama3(args, output_dir):
         grid_thw=[t_grid, h_grid, w_grid],
         num_layers=num_layers, num_heads=num_heads,
     )
-    return capturer, gen_toks, gen_text, meta
+    return capturer, gen_toks, gen_text, meta, trim_len
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -437,7 +468,7 @@ def main():
     ap.add_argument("--video", required=True)
     ap.add_argument("--prompt", default="Describe this video.")
     ap.add_argument("--fps", type=float, default=1.0)
-    ap.add_argument("--max-tokens", type=int, default=128)
+    ap.add_argument("--max-tokens", type=int, default=1024)
     ap.add_argument("--output", default="attn_data")
     ap.add_argument("--save-full", action="store_true")
     args = ap.parse_args()
@@ -449,9 +480,9 @@ def main():
     print(f"Detected model family: {family}\n")
 
     if family == "qwen2_5_vl":
-        capturer, gen_toks, gen_text, meta = run_qwen2_5_vl(args, out)
+        capturer, gen_toks, gen_text, meta, trim_len = run_qwen2_5_vl(args, out)
     elif family == "videollama3":
-        capturer, gen_toks, gen_text, meta = run_videollama3(args, out)
+        capturer, gen_toks, gen_text, meta, trim_len = run_videollama3(args, out)
     else:
         raise ValueError(family)
 
@@ -459,6 +490,11 @@ def main():
 
     attn_avg, attn_full = capturer.get_data()
     capturer.cleanup()
+
+    # Trim attention to match actual generated tokens (exclude EOS/pad steps)
+    attn_avg = attn_avg[:trim_len]
+    if args.save_full:
+        attn_full = attn_full[:trim_len]
 
     np.save(out / "attention_avg.npy", attn_avg.astype(np.float32))
     print(f"  Saved attention_avg.npy  {attn_avg.shape}")
