@@ -1,6 +1,6 @@
 # VLM Attention Visualizer
 
-Interactive tool for capturing and visualizing per-layer, per-head attention heatmaps from video language models during autoregressive generation. See exactly which video regions each generated token attends to.
+Interactive tool for capturing and visualizing per-layer, per-head attention heatmaps from video language models during autoregressive generation. Supports both **forward** (which video regions does a generated token attend to?) and **backward** (which generated tokens does a selected video region influence?) analysis.
 
 ![Qwen2.5-VL & VideoLLaMA3 supported](https://img.shields.io/badge/models-Qwen2.5--VL%20%7C%20VideoLLaMA3-blue)
 
@@ -20,7 +20,8 @@ The model family is auto-detected from the config — just change `--model`.
 ├── capture.py              # Step 1: Run inference, hook attention, save data
 ├── server.py               # Step 2: Serve interactive visualization
 ├── templates/
-│   └── index.html          # Frontend UI (served by Flask)
+│   ├── index.html          # Forward view: tokens → frame heatmaps
+│   └── backward.html       # Backward view: patches → token heatmaps
 ├── attn_data/              # Output directory (created by capture.py)
 │   ├── metadata.json       # Model info, grid geometry, generated tokens
 │   ├── attention_avg.npy   # [steps, layers, video_tokens]  float32
@@ -32,6 +33,22 @@ The model family is auto-detected from the config — just change `--model`.
 │       └── ...
 └── README.md
 ```
+
+## Visualization Modes
+
+### Forward View (`/`)
+
+**Question: "When the model generated the word 'helicopter', which parts of the video was it looking at?"**
+
+Select one or more generated tokens → see attention heatmaps overlaid on each video frame. This is the standard attention visualization: for each selected decode step, the attention weights over video token positions are reshaped to the spatial patch grid and rendered as a colormap overlay.
+
+### Backward View (`/backward`)
+
+**Question: "If I point at the helicopter in frame 3, which generated words were most influenced by that region?"**
+
+Click/drag to select spatial patches on the video frames → see a heatmap over the generated token bar showing which output words attended most to the selected region. This reverses the lookup direction: instead of indexing `attn[step, layer, :]` (all video tokens for one step), it indexes `attn[:, layer, selected_tokens]` (all steps for selected video tokens) and aggregates across the selected patches.
+
+Both views use the same captured data — no separate capture run is needed.
 
 ## How It Works
 
@@ -48,7 +65,8 @@ Runs model inference on a video+prompt and captures attention weights at every a
    - *VideoLLaMA3*: finds `image_token_index` positions, accounting for token compression (some video tokens may be removed based on inter-frame similarity)
 4. **Registers forward hooks** on every `layer.self_attn` module that capture `attn_weights[0, :, 0, video_indices]` during decode steps (when `q_len == 1`)
 5. **Runs `model.generate()`** — the hooks fire on each decode step, capturing which video patches the new token attends to
-6. **Saves** attention arrays, metadata, video frames, and (for VideoLLaMA3) the compression mask
+6. **Trims EOS/pad tokens** — generated output is trimmed at the first EOS or pad token, and attention arrays are truncated to match, so only real tokens are saved
+7. **Saves** attention arrays, metadata, video frames, and (for VideoLLaMA3) the compression mask
 
 ### server.py
 
@@ -63,27 +81,72 @@ The attention arrays store one value per video token. To overlay heatmaps on fra
 
 The API always returns `[TG][H][W]` heatmaps regardless of model, so the frontend doesn't need to know about compression.
 
+**Backward attention with compression:**
+
+The backward endpoint converts user-selected `(tg, row, col)` grid positions back to compressed video token indices using a precomputed cumulative sum over the compression mask. Patches that were compressed away are silently skipped, and the skip count is returned to the frontend so the user knows some selections had no corresponding token.
+
 **API endpoints:**
 
-| Endpoint | Description |
-|---|---|
-| `GET /` | Serves the UI |
-| `GET /api/metadata` | Model info, grid geometry, generated tokens |
-| `GET /api/frames/<idx>` | Video frame PNG |
-| `GET /api/attention?step=0&layer=27&head=avg` | Single-step heatmap |
-| `GET /api/attention_multi?steps=0,1,2&layer=27&head=avg&agg=mean` | Multi-step aggregated heatmap |
+| Endpoint | Method | Description |
+|---|---|---|
+| `/` | GET | Forward view UI |
+| `/backward` | GET | Backward view UI |
+| `/api/metadata` | GET | Model info, grid geometry, generated tokens |
+| `/api/frames/<idx>` | GET | Video frame PNG |
+| `/api/attention?step=0&layer=27&head=avg` | GET | Single-step forward heatmap |
+| `/api/attention_multi?steps=0,1,2&layer=27&head=avg&agg=mean` | GET | Multi-step aggregated forward heatmap |
+| `/api/attention_backward` | POST | Backward: patches → per-token scores |
 
-### templates/index.html
+**Backward endpoint request body:**
+```json
+{
+  "patches": [{"tg": 0, "row": 5, "col": 10}, {"tg": 0, "row": 5, "col": 11}],
+  "layer": 27,
+  "head": "avg",
+  "agg": "sum"
+}
+```
 
-Single-page interactive frontend. No build step, no dependencies — just vanilla JS with inline CSS.
+**Backward endpoint response:**
+```json
+{
+  "scores": [0.0012, 0.0045, ...],
+  "scores_norm": [0.0, 0.73, ...],
+  "num_patches": 2,
+  "num_skipped": 0,
+  "layer": 27,
+  "head": "avg",
+  "agg": "sum",
+  "vmin": 0.0012,
+  "vmax": 0.0045
+}
+```
+
+### templates/index.html (Forward View)
+
+Single-page interactive frontend for forward attention. No build step, no dependencies — vanilla JS with inline CSS.
 
 **Features:**
-- Click/shift-click/ctrl-click generated tokens to select which decode steps to visualize
+- Click generated tokens to toggle selection, shift+click for range
 - Layer slider, head selector, opacity control
 - Mean/max aggregation across selected steps
 - Six colormaps (inferno, hot, viridis, plasma, magma, turbo)
 - Per-frame attention sum scores
-- Model family badge and compression indicator
+- Navigation link to backward view
+
+### templates/backward.html (Backward View)
+
+Interactive patch selection UI for backward attention analysis.
+
+**Features:**
+- Click patches on video frames to toggle selection
+- Drag to paint-select multiple patches across a region
+- Shift+click to erase patches
+- Generated tokens displayed as a heatmap bar — background color reflects attention score
+- Hover any token to see the raw attention value
+- Layer slider, head selector, sum/mean aggregation, colormap
+- Shows count of compressed-away patches (VideoLLaMA3)
+- Navigation link back to forward view
 
 ## Installation
 
@@ -145,7 +208,7 @@ python capture.py \
 | `--video` | *(required)* | Path to video file |
 | `--prompt` | `"Describe this video."` | Text prompt |
 | `--fps` | `1.0` | Frames per second to sample |
-| `--max-tokens` | `128` | Maximum tokens to generate |
+| `--max-tokens` | `1024` | Maximum tokens to generate |
 | `--output` | `attn_data` | Output directory |
 | `--save-full` | `false` | Also save per-head attention (can be large) |
 
@@ -159,7 +222,8 @@ python server.py --data attn_data_qwen --port 8888
 
 **Local machine:**
 ```
-http://localhost:8888
+Forward view:  http://localhost:8888/
+Backward view: http://localhost:8888/backward
 ```
 
 **Remote server (SSH tunnel):**
@@ -207,7 +271,7 @@ ssh -L 9999:localhost:8888 user@gpu-server
 
 Shape: `[num_gen_steps, num_layers, num_video_tokens]` — float32
 
-Head-averaged attention weights. For each generated token (step) and each layer, stores the attention weight from that token to every video token position.
+Head-averaged attention weights. For each generated token (step) and each layer, stores the attention weight from that token to every video token position. Used by both forward and backward views.
 
 ### attention_full.npy (optional, `--save-full`)
 
@@ -219,11 +283,13 @@ Per-head attention weights. Can be large — for Qwen2.5-VL-32B with 127 steps �
 
 Shape: `[num_temporal_groups × h_patches × w_patches]` — bool
 
-Indicates which positions in the full spatial grid have surviving tokens after VideoLLaMA3's temporal similarity compression. `True` = token kept, `False` = token removed. Used by the server to scatter sparse attention values back into the full grid for visualization.
+Indicates which positions in the full spatial grid have surviving tokens after VideoLLaMA3's temporal similarity compression. `True` = token kept, `False` = token removed. Used by the server to scatter sparse attention values back into the full grid for forward visualization, and to map grid positions back to compressed indices for backward queries.
 
 ## Notes
 
 - `attn_implementation="eager"` is required — flash attention and SDPA do not return attention weight tensors. This makes inference slower and uses more memory than normal.
 - The hooks only capture decode steps (`q_len == 1`), not the prefill pass.
-- VideoLLaMA3's token compression may remove zero tokens if the video has high motion (all frames are sufficiently different).
+- Generated output is trimmed at the first EOS or pad token. Only real tokens (and their corresponding attention steps) are saved.
+- VideoLLaMA3's token compression may remove zero tokens if the video has high motion (all frames are sufficiently different). In the backward view, selecting a compressed-away patch is silently skipped and the UI shows how many patches were skipped.
 - Frame counts may differ slightly between what decord/opencv extracts and what the model's processor uses, because each has its own sampling logic. The visualization uses `min(saved_frames, temporal_groups)`.
+- Both forward and backward views use the same captured data — one capture run serves both.
