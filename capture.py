@@ -17,11 +17,43 @@ Usage:
 import torch
 import json
 import numpy as np
+import re
 import os
 import argparse
 from pathlib import Path
 from PIL import Image
 from transformers import AutoConfig
+
+
+def make_output_dir(model_name: str, video_path: str) -> Path:
+    """
+    Auto-generate output path from model and video.
+    
+    Qwen/Qwen2.5-VL-7B-Instruct  + demo/wedding.mp4  → outputs/qwen_7B/wedding/
+    DAMO-NLP-SG/VideoLLaMA3-7B    + demo/wedding.mp4  → outputs/videollama3_7B/wedding/
+    """
+    # Extract model short name
+    name = model_name.split("/")[-1]  # e.g. "Qwen2.5-VL-7B-Instruct"
+    
+    # Find the size param (e.g. 2B, 3B, 7B, 32B, 72B)
+    size_match = re.search(r'(\d+B)', name, re.IGNORECASE)
+    size = size_match.group(1) if size_match else ""
+    
+    # Determine family prefix
+    name_lower = name.lower()
+    if "qwen" in name_lower:
+        prefix = "qwen"
+    elif "videollama" in name_lower:
+        prefix = "videollama3"
+    else:
+        prefix = name_lower.split("-")[0]
+    
+    model_dir = f"{prefix}_{size}" if size else prefix
+    
+    # Video stem: demo/wedding.mp4 → wedding
+    video_stem = Path(video_path).stem
+    
+    return Path("outputs") / model_dir / video_stem
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -468,13 +500,13 @@ def main():
     ap.add_argument("--video", required=True)
     ap.add_argument("--prompt", default="Describe this video.")
     ap.add_argument("--fps", type=float, default=1.0)
-    ap.add_argument("--max-tokens", type=int, default=1024)
-    ap.add_argument("--output", default="attn_data")
+    ap.add_argument("--max-tokens", type=int, default=4096)
     ap.add_argument("--save-full", action="store_true")
     args = ap.parse_args()
 
-    out = Path(args.output)
+    out = make_output_dir(args.model, args.video)
     out.mkdir(parents=True, exist_ok=True)
+    print(f"Output directory: {out}")
 
     family = detect_model_family(args.model)
     print(f"Detected model family: {family}\n")

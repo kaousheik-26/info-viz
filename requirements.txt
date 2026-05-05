@@ -1,0 +1,11 @@
+torch
+transformers
+flask
+numpy
+Pillow
+qwen-vl-utils
+decord
+opencv-python
+imageio
+torchvision
+ffmpeg

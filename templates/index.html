@@ -3,145 +3,256 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Forward Attention — Tokens → Frames</title>
+<title>VLM Attention Visualizer</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap');
 
   :root {
-    --bg:         #0c0e13;
-    --bg-card:    #14171e;
-    --bg-raised:  #1a1e28;
-    --border:     #262b38;
-    --text:       #c8cdd8;
-    --text-dim:   #6b7280;
-    --text-bright:#eef0f4;
-    --accent:     #4f8ff7;
-    --accent-dim: #2a4a7a;
-    --selected:   #f59e0b;
-    --selected-bg:rgba(245, 158, 11, 0.15);
-    --mono:       'JetBrains Mono', monospace;
-    --sans:       'DM Sans', -apple-system, sans-serif;
+    --bg:          #0a0b10;
+    --bg-panel:    #111318;
+    --bg-card:     #161921;
+    --bg-raised:   #1c1f2a;
+    --border:      #252936;
+    --border-hi:   #363c4f;
+    --text:        #b8bdc9;
+    --text-dim:    #5c6272;
+    --text-bright: #e8eaf0;
+    --accent:      #5b8def;
+    --accent-dim:  #253660;
+    --fwd-color:   #5b8def;
+    --fwd-dim:     #253660;
+    --bwd-color:   #f59e0b;
+    --bwd-dim:     rgba(245, 158, 11, 0.12);
+    --bwd-sel:     rgba(245, 158, 11, 0.45);
+    --coord-fwd:   rgba(91, 141, 239, 0.25);
+    --coord-bwd:   rgba(245, 158, 11, 0.18);
+    --mono:        'JetBrains Mono', monospace;
+    --sans:        'Outfit', -apple-system, sans-serif;
+    --radius:      6px;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
 
-  .header { padding: 20px 28px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; background: var(--bg-card); }
-  .header h1 { font-size: 18px; font-weight: 700; color: var(--text-bright); letter-spacing: -0.3px; }
-  .header .meta { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
-  .header .pill { font-size: 11px; padding: 3px 10px; border-radius: 100px; background: var(--accent-dim); color: var(--accent); font-weight: 600; font-family: var(--mono); }
-  .nav-link { margin-left: auto; font-size: 12px; color: var(--accent); text-decoration: none; font-family: var(--mono); border: 1px solid var(--accent-dim); padding: 4px 12px; border-radius: 4px; }
-  .nav-link:hover { background: var(--accent-dim); }
+  /* ── Header ────────────────────────────────────── */
+  .header {
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .header h1 { font-size: 17px; font-weight: 800; color: var(--text-bright); letter-spacing: -0.5px; }
+  .header .pill {
+    font-size: 10px; padding: 3px 9px; border-radius: 100px;
+    font-weight: 600; font-family: var(--mono);
+  }
+  .pill-model { background: var(--accent-dim); color: var(--accent); }
+  .pill-family { background: rgba(245,158,11,0.12); color: #f59e0b; }
+  .header .meta { font-size: 11px; color: var(--text-dim); font-family: var(--mono); margin-left: auto; }
 
-  .token-section { padding: 16px 28px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
-  .token-section label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 10px; }
-  .token-bar { display: flex; flex-wrap: wrap; gap: 4px; max-height: 120px; overflow-y: auto; padding: 4px 0; }
-  .token-chip { font-family: var(--mono); font-size: 12px; padding: 4px 7px; border-radius: 4px; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text); cursor: pointer; transition: all 0.12s; user-select: none; white-space: pre; line-height: 1.3; }
-  .token-chip:hover { border-color: var(--accent); background: var(--accent-dim); }
-  .token-chip.selected { border-color: var(--selected); background: var(--selected-bg); color: var(--selected); font-weight: 600; }
-  .token-chip .idx { font-size: 9px; color: var(--text-dim); margin-right: 3px; vertical-align: super; }
-  .token-actions { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
-  .token-actions button { font-family: var(--sans); font-size: 12px; padding: 4px 12px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); cursor: pointer; transition: all 0.12s; }
-  .token-actions button:hover { border-color: var(--accent); color: var(--accent); }
-  .selection-info { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
-
-  .controls { padding: 16px 28px; border-bottom: 1px solid var(--border); display: flex; gap: 32px; align-items: center; flex-wrap: wrap; background: var(--bg); }
-  .control-group { display: flex; align-items: center; gap: 10px; }
-  .control-group label { font-size: 12px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; min-width: 55px; }
-  .control-group input[type="range"] { width: 200px; accent-color: var(--accent); }
-  .control-group select { font-family: var(--mono); font-size: 12px; padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); cursor: pointer; }
-  .control-value { font-family: var(--mono); font-size: 13px; color: var(--accent); min-width: 50px; }
-  .control-group .btn-group { display: flex; gap: 2px; }
-  .control-group .btn-group button { font-family: var(--mono); font-size: 11px; padding: 4px 10px; border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); cursor: pointer; transition: all 0.12s; }
-  .control-group .btn-group button:first-child { border-radius: 4px 0 0 4px; }
-  .control-group .btn-group button:last-child  { border-radius: 0 4px 4px 0; }
-  .control-group .btn-group button.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-
-  .colormap-legend { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-  .colormap-bar { width: 120px; height: 12px; border-radius: 2px; border: 1px solid var(--border); }
-  .colormap-label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
-
-  .frame-grid-section { padding: 24px 28px; }
-  .frame-grid-section > label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 14px; }
-  .frame-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-  .frame-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; transition: border-color 0.15s; }
-  .frame-card:hover { border-color: var(--accent); }
-  .frame-card-header { padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
-  .frame-card-header .title { font-size: 12px; font-weight: 600; color: var(--text-bright); }
-  .frame-card-header .tg-badge { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--bg-raised); color: var(--text-dim); }
-  .frame-canvas-wrap { position: relative; width: 100%; background: #000; }
-  .frame-canvas-wrap canvas { display: block; width: 100%; height: auto; }
-  .frame-attn-score { padding: 6px 12px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
-  .frame-attn-score .score-val { color: var(--accent); }
-
-  .prompt-bar { padding: 10px 28px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--border); background: var(--bg); font-family: var(--mono); display: flex; gap: 8px; }
+  .prompt-bar {
+    padding: 9px 28px; font-size: 11px; color: var(--text-dim);
+    border-bottom: 1px solid var(--border); background: var(--bg);
+    font-family: var(--mono); display: flex; gap: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .prompt-bar strong { color: var(--text); }
 
-  .loading-overlay { position: fixed; inset: 0; background: rgba(12,14,19,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; gap: 16px; }
-  .loading-overlay.hidden { display: none; }
-  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { font-size: 14px; color: var(--text-dim); }
+  /* ── Shared Controls ───────────────────────────── */
+  .controls {
+    padding: 12px 28px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 28px; align-items: center; flex-wrap: wrap;
+    background: var(--bg-panel);
+  }
+  .ctrl { display: flex; align-items: center; gap: 8px; }
+  .ctrl label {
+    font-size: 10px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.6px;
+  }
+  .ctrl input[type="range"] { width: 160px; accent-color: var(--accent); }
+  .ctrl select {
+    font-family: var(--mono); font-size: 11px; padding: 4px 8px;
+    border-radius: var(--radius); border: 1px solid var(--border);
+    background: var(--bg-raised); color: var(--text); cursor: pointer;
+  }
+  .ctrl-val { font-family: var(--mono); font-size: 12px; color: var(--accent); min-width: 44px; }
 
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  .cmap-legend { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .cmap-legend canvas { border-radius: 2px; border: 1px solid var(--border); }
+  .cmap-legend span { font-family: var(--mono); font-size: 9px; color: var(--text-dim); }
+
+  /* ── View Panels ───────────────────────────────── */
+  .view-panel {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px 22px;
+  }
+  .view-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+  .view-tag {
+    font-size: 9px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 3px;
+    font-family: var(--mono);
+  }
+  .view-tag-fwd { background: var(--fwd-dim); color: var(--fwd-color); }
+  .view-tag-bwd { background: var(--bwd-dim); color: var(--bwd-color); }
+  .view-desc { font-size: 12px; color: var(--text-dim); }
+  .view-actions {
+    display: flex; gap: 6px; align-items: center; margin-left: auto;
+  }
+  .view-actions button, .view-actions .btn-sm {
+    font-family: var(--sans); font-size: 11px; padding: 3px 10px;
+    border-radius: var(--radius); border: 1px solid var(--border);
+    background: var(--bg-raised); color: var(--text); cursor: pointer;
+    transition: all 0.12s;
+  }
+  .view-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-group-sm { display: flex; gap: 1px; }
+  .btn-group-sm button { border-radius: 0; }
+  .btn-group-sm button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .btn-group-sm button:last-child  { border-radius: 0 var(--radius) var(--radius) 0; }
+  .btn-group-sm button.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .view-stat { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+
+  /* ── Token Bars ────────────────────────────────── */
+  .token-bar {
+    display: flex; flex-wrap: wrap; gap: 3px;
+    max-height: 90px; overflow-y: auto; padding: 2px 0; margin-bottom: 12px;
+  }
+  .tok {
+    font-family: var(--mono); font-size: 11px;
+    padding: 3px 6px; border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--bg-raised); color: var(--text);
+    cursor: pointer; transition: all 0.1s;
+    user-select: none; white-space: pre; line-height: 1.3;
+    position: relative;
+  }
+  .tok .ix { font-size: 8px; color: var(--text-dim); margin-right: 2px; vertical-align: super; }
+  .tok:hover { border-color: var(--accent); }
+
+  /* Forward selected tokens */
+  .tok.fwd-sel {
+    border-color: var(--fwd-color); background: var(--fwd-dim); color: var(--fwd-color); font-weight: 600;
+  }
+  /* Backward coordination indicator on forward tokens */
+  .tok .coord-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    border-radius: 0 0 2px 2px; background: transparent;
+  }
+
+  /* Backward token heatmap */
+  .tok-heat {
+    font-family: var(--mono); font-size: 11px;
+    padding: 3px 6px; border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--bg-raised); color: var(--text);
+    white-space: pre; line-height: 1.3;
+    position: relative; transition: all 0.1s;
+  }
+  .tok-heat .ix { font-size: 8px; color: var(--text-dim); margin-right: 2px; vertical-align: super; }
+  .tok-heat .tip {
+    display: none; position: absolute; bottom: calc(100% + 4px); left: 50%;
+    transform: translateX(-50%); padding: 2px 7px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 3px; font-size: 9px; color: var(--bwd-color);
+    white-space: nowrap; z-index: 20;
+  }
+  .tok-heat:hover .tip { display: block; }
+
+  /* ── Frame Strips ──────────────────────────────── */
+  .frame-strip {
+    display: flex; gap: 10px; overflow-x: auto;
+    padding: 4px 0 8px; scroll-snap-type: x proximity;
+  }
+  .frame-strip::-webkit-scrollbar { height: 5px; }
+  .frame-strip::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .fcard {
+    flex: 0 0 auto; width: 260px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    scroll-snap-align: start; transition: border-color 0.12s;
+  }
+  .fcard:hover { border-color: var(--border-hi); }
+  .fcard-head {
+    padding: 5px 10px; display: flex; justify-content: space-between;
+    align-items: center; border-bottom: 1px solid var(--border);
+    font-size: 10px;
+  }
+  .fcard-head .ft { font-weight: 600; color: var(--text-bright); }
+  .fcard-head .tg {
+    font-family: var(--mono); font-size: 9px; padding: 1px 5px;
+    border-radius: 3px; background: var(--bg-raised); color: var(--text-dim);
+  }
+  .fcard-canvas { position: relative; width: 100%; background: #000; }
+  .fcard-canvas canvas { display: block; width: 100%; height: auto; }
+  .fcard-foot {
+    padding: 4px 10px; font-family: var(--mono); font-size: 10px;
+    color: var(--text-dim); border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between;
+  }
+  .fcard-foot .sv { color: var(--accent); }
+
+  /* Backward frame cards with crosshair */
+  .bwd-strip .fcard-canvas { cursor: crosshair; }
+
+  /* ── Loading ───────────────────────────────────── */
+  .loading {
+    position: fixed; inset: 0; background: rgba(10,11,16,0.92);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; z-index: 100; gap: 14px;
+  }
+  .loading.hidden { display: none; }
+  .spin {
+    width: 28px; height: 28px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: sp 0.7s linear infinite;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 </style>
 </head>
 <body>
 
-<div class="loading-overlay" id="loading">
-  <div class="spinner"></div>
-  <div class="loading-text">Loading attention data ...</div>
+<div class="loading" id="loading">
+  <div class="spin"></div>
+  <div style="font-size:13px;color:var(--text-dim)">Loading attention data</div>
 </div>
 
+<!-- HEADER -->
 <div class="header">
-  <h1>Forward Attention</h1>
-  <span class="pill" id="model-name">-</span>
-  <span class="meta" id="header-stats">-</span>
-  <a class="nav-link" href="/backward">Backward View &rarr;</a>
+  <h1>VLM Attention Visualizer</h1>
+  <span class="pill pill-model" id="hd-model">-</span>
+  <span class="pill pill-family" id="hd-family">-</span>
+  <span class="meta" id="hd-stats">-</span>
 </div>
-
 <div class="prompt-bar">
-  <strong>Prompt:</strong>
-  <span id="prompt-text">-</span>
+  <strong>Prompt:</strong> <span id="hd-prompt">-</span>
 </div>
 
-<div class="token-section">
-  <label>Generated Tokens <span class="selection-info" id="sel-info">(click to toggle, shift+click for range)</span></label>
-  <div class="token-bar" id="token-bar"></div>
-  <div class="token-actions">
-    <button id="btn-select-all">Select All</button>
-    <button id="btn-clear">Clear</button>
-    <span class="selection-info" id="sel-count">0 selected</span>
-  </div>
-</div>
-
+<!-- SHARED CONTROLS -->
 <div class="controls">
-  <div class="control-group">
+  <div class="ctrl">
     <label>Layer</label>
-    <input type="range" id="layer-slider" min="0" max="0" value="0">
-    <span class="control-value" id="layer-value">0</span>
+    <input type="range" id="layer-sl" min="0" max="0" value="0">
+    <span class="ctrl-val" id="layer-val">0</span>
   </div>
-  <div class="control-group">
+  <div class="ctrl">
     <label>Head</label>
-    <select id="head-select"><option value="avg" selected>Average</option></select>
+    <select id="head-sel"><option value="avg" selected>Avg</option></select>
   </div>
-  <div class="control-group">
+  <div class="ctrl">
     <label>Opacity</label>
-    <input type="range" id="opacity-slider" min="0" max="100" value="60">
-    <span class="control-value" id="opacity-value">60%</span>
+    <input type="range" id="opac-sl" min="0" max="100" value="55">
+    <span class="ctrl-val" id="opac-val">55%</span>
   </div>
-  <div class="control-group">
-    <label>Agg</label>
-    <div class="btn-group">
-      <button class="active" data-agg="mean">Mean</button>
-      <button data-agg="max">Max</button>
-    </div>
-  </div>
-  <div class="control-group">
+  <div class="ctrl">
     <label>Cmap</label>
-    <select id="cmap-select">
+    <select id="cmap-sel">
       <option value="inferno" selected>Inferno</option>
       <option value="hot">Hot</option>
       <option value="viridis">Viridis</option>
@@ -150,134 +261,410 @@
       <option value="turbo">Turbo</option>
     </select>
   </div>
-  <div class="colormap-legend">
-    <span class="colormap-label">Low</span>
-    <canvas id="colormap-bar" width="120" height="12" class="colormap-bar"></canvas>
-    <span class="colormap-label">High</span>
+  <div class="cmap-legend">
+    <span>Low</span>
+    <canvas id="cmap-bar" width="100" height="10"></canvas>
+    <span>High</span>
   </div>
 </div>
 
-<div class="frame-grid-section">
-  <label>Frames <span id="frames-subtitle" style="text-transform:none;font-weight:400;color:var(--text-dim)"></span></label>
-  <div class="frame-grid" id="frame-grid"></div>
+<!-- ═══ FORWARD VIEW ═══ -->
+<div class="view-panel" id="fwd-panel">
+  <div class="view-header">
+    <span class="view-tag view-tag-fwd">FORWARD</span>
+    <span class="view-desc">Select tokens → see where the model looked in each frame</span>
+    <div class="view-actions">
+      <button id="fwd-all">Select All</button>
+      <button id="fwd-clear">Clear</button>
+      <div class="btn-group-sm">
+        <button class="active" data-fwd-agg="mean">Mean</button>
+        <button data-fwd-agg="max">Max</button>
+      </div>
+      <span class="view-stat" id="fwd-stat">0 selected</span>
+    </div>
+  </div>
+  <div class="token-bar" id="fwd-tokens"></div>
+  <div class="frame-strip" id="fwd-frames"></div>
+</div>
+
+<!-- ═══ BACKWARD VIEW ═══ -->
+<div class="view-panel" id="bwd-panel">
+  <div class="view-header">
+    <span class="view-tag view-tag-bwd">BACKWARD</span>
+    <span class="view-desc">Select patches on frames → see which tokens they influenced</span>
+    <div class="view-actions">
+      <button id="bwd-clear">Clear</button>
+      <div class="btn-group-sm">
+        <button class="active" data-bwd-agg="sum">Sum</button>
+        <button data-bwd-agg="mean">Mean</button>
+      </div>
+      <span class="view-stat" id="bwd-stat">0 patches</span>
+    </div>
+  </div>
+  <div class="frame-strip bwd-strip" id="bwd-frames"></div>
+  <div class="token-bar" id="bwd-tokens" style="margin-top:12px"></div>
 </div>
 
 <script>
-const COLORMAPS = {};
-function buildLUT(kp) {
-  const lut = new Array(256);
-  for (let i = 0; i < 256; i++) {
-    const t = i / 255;
-    let lo = kp[0], hi = kp[kp.length - 1];
-    for (let k = 0; k < kp.length - 1; k++) {
-      if (t >= kp[k][0] && t <= kp[k + 1][0]) { lo = kp[k]; hi = kp[k + 1]; break; }
-    }
-    const f = (hi[0] - lo[0]) > 0 ? (t - lo[0]) / (hi[0] - lo[0]) : 0;
-    lut[i] = [Math.round(lo[1]+f*(hi[1]-lo[1])), Math.round(lo[2]+f*(hi[2]-lo[2])), Math.round(lo[3]+f*(hi[3]-lo[3]))];
-  }
-  return lut;
+// ═════════════════════════════════════════════════════════════════════
+// Colormaps
+// ═════════════════════════════════════════════════════════════════════
+const CM={};
+function bLUT(kp){const l=new Array(256);for(let i=0;i<256;i++){const t=i/255;let a=kp[0],b=kp[kp.length-1];for(let k=0;k<kp.length-1;k++){if(t>=kp[k][0]&&t<=kp[k+1][0]){a=kp[k];b=kp[k+1];break;}}const f=(b[0]-a[0])>0?(t-a[0])/(b[0]-a[0]):0;l[i]=[Math.round(a[1]+f*(b[1]-a[1])),Math.round(a[2]+f*(b[2]-a[2])),Math.round(a[3]+f*(b[3]-a[3]))];}return l;}
+CM.inferno=bLUT([[0,0,0,4],[.13,31,12,72],[.25,85,15,109],[.38,136,34,106],[.5,186,54,85],[.63,227,89,51],[.75,249,140,10],[.88,249,200,40],[1,252,255,164]]);
+CM.hot=bLUT([[0,0,0,0],[.33,230,0,0],[.66,255,200,0],[1,255,255,255]]);
+CM.viridis=bLUT([[0,68,1,84],[.13,72,35,116],[.25,64,67,135],[.38,52,94,141],[.5,33,145,140],[.63,53,183,121],[.75,109,205,89],[.88,180,222,44],[1,253,231,37]]);
+CM.plasma=bLUT([[0,13,8,135],[.13,75,3,161],[.25,126,3,168],[.38,168,34,150],[.5,203,70,121],[.63,229,107,93],[.75,248,148,65],[.88,253,195,40],[1,240,249,33]]);
+CM.magma=bLUT([[0,0,0,4],[.13,28,16,68],[.25,79,18,123],[.38,129,37,129],[.5,181,54,122],[.63,229,80,100],[.75,251,135,97],[.88,254,194,140],[1,252,253,191]]);
+CM.turbo=bLUT([[0,48,18,59],[.13,67,96,211],[.25,30,156,240],[.38,18,206,170],[.5,82,237,93],[.63,183,243,33],[.75,243,195,28],[.88,244,116,15],[1,122,4,3]]);
+function cc(t,n){const l=CM[n]||CM.inferno;return l[Math.max(0,Math.min(255,Math.round(t*255)))];}
+
+// ═════════════════════════════════════════════════════════════════════
+// State
+// ═════════════════════════════════════════════════════════════════════
+let M=null;
+let cmap="inferno", fwdAgg="mean", bwdAgg="sum";
+
+// Forward state
+let fwdSel=new Set(), fwdLast=null, fwdHeatmaps=null;
+let fwdImgs=[], fwdCanvases=[];
+
+// Backward state
+let bwdPatches=new Set(), bwdScores=null, bwdScoresNorm=null;
+let bwdImgs=[], bwdCanvases=[];
+let isDrag=false, paintMode=true;
+
+// Coordination
+let bwdCoordScores=null;  // backward scores shown on forward token bar
+let fwdCoordHeatmaps=null; // forward heatmaps shown on backward frames
+
+let pendingFwd=null, pendingBwd=null;
+
+// ═════════════════════════════════════════════════════════════════════
+// Init
+// ═════════════════════════════════════════════════════════════════════
+async function init(){
+  const r=await fetch("/api/metadata"); M=await r.json();
+
+  // Header
+  document.getElementById("hd-model").textContent=M.model.split("/").pop();
+  document.getElementById("hd-family").textContent=M.model_family||"unknown";
+  document.getElementById("hd-stats").textContent=`${M.num_layers}L · ${M.num_heads}H · ${M.num_frames}F · ${M.num_gen_steps}T`;
+  document.getElementById("hd-prompt").textContent=M.prompt;
+
+  // Controls
+  const ls=document.getElementById("layer-sl"); ls.max=M.num_layers-1; ls.value=M.num_layers-1;
+  document.getElementById("layer-val").textContent=ls.value;
+  if(M.has_full_attention){const h=document.getElementById("head-sel");for(let i=0;i<M.num_heads;i++){const o=document.createElement("option");o.value=i;o.textContent=`H${i}`;h.appendChild(o);}}
+
+  // Build forward tokens
+  buildFwdTokens();
+  // Build backward tokens
+  buildBwdTokens();
+  // Load frames for both views
+  await Promise.all([loadFwdFrames(), loadBwdFrames()]);
+
+  // Default: select first token in forward
+  fwdSel.add(0); updateFwdTokenUI(); fetchForward();
+
+  document.getElementById("loading").classList.add("hidden");
+  drawCmapBar();
 }
-COLORMAPS.inferno = buildLUT([[0,0,0,4],[.13,31,12,72],[.25,85,15,109],[.38,136,34,106],[.5,186,54,85],[.63,227,89,51],[.75,249,140,10],[.88,249,200,40],[1,252,255,164]]);
-COLORMAPS.hot     = buildLUT([[0,0,0,0],[.33,230,0,0],[.66,255,200,0],[1,255,255,255]]);
-COLORMAPS.viridis = buildLUT([[0,68,1,84],[.13,72,35,116],[.25,64,67,135],[.38,52,94,141],[.5,33,145,140],[.63,53,183,121],[.75,109,205,89],[.88,180,222,44],[1,253,231,37]]);
-COLORMAPS.plasma  = buildLUT([[0,13,8,135],[.13,75,3,161],[.25,126,3,168],[.38,168,34,150],[.5,203,70,121],[.63,229,107,93],[.75,248,148,65],[.88,253,195,40],[1,240,249,33]]);
-COLORMAPS.magma   = buildLUT([[0,0,0,4],[.13,28,16,68],[.25,79,18,123],[.38,129,37,129],[.5,181,54,122],[.63,229,80,100],[.75,251,135,97],[.88,254,194,140],[1,252,253,191]]);
-COLORMAPS.turbo   = buildLUT([[0,48,18,59],[.13,67,96,211],[.25,30,156,240],[.38,18,206,170],[.5,82,237,93],[.63,183,243,33],[.75,243,195,28],[.88,244,116,15],[1,122,4,3]]);
-function cmapColor(t, name) { const lut = COLORMAPS[name]||COLORMAPS.inferno; return lut[Math.max(0,Math.min(255,Math.round(t*255)))]; }
 
-let META = null, selectedSteps = new Set(), lastClickedStep = null, frameImages = [], currentHeatmaps = null, aggMode = "mean", currentCmap = "inferno", pendingFetch = null;
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
-async function init() {
-  const res = await fetch("/api/metadata"); META = await res.json();
-  document.getElementById("model-name").textContent = META.model.split("/").pop();
-  document.getElementById("header-stats").textContent = `${META.num_layers} layers · ${META.num_heads} heads · ${META.num_frames} frames · ${META.num_gen_steps} tokens`;
-  document.getElementById("prompt-text").textContent = META.prompt;
-  const ls = document.getElementById("layer-slider"); ls.max = META.num_layers-1; ls.value = META.num_layers-1;
-  document.getElementById("layer-value").textContent = `${ls.value} / ${ls.max}`;
-  if (META.has_full_attention) { const hs = document.getElementById("head-select"); for (let i=0;i<META.num_heads;i++) { const o=document.createElement("option"); o.value=i; o.textContent=`Head ${i}`; hs.appendChild(o); } }
-  const bar = document.getElementById("token-bar");
-  META.generated_tokens.forEach((tok,i) => {
-    const chip = document.createElement("div"); chip.className = "token-chip"; chip.dataset.step = i;
-    const display = tok.replace(/ /g,"·").replace(/\n/g,"↵") || "·";
-    chip.innerHTML = `<span class="idx">${i}</span>${escapeHtml(display)}`;
-    chip.addEventListener("click", (e) => onTokenClick(i, e)); bar.appendChild(chip);
+// ═════════════════════════════════════════════════════════════════════
+// Forward View
+// ═════════════════════════════════════════════════════════════════════
+function buildFwdTokens(){
+  const bar=document.getElementById("fwd-tokens"); bar.innerHTML="";
+  M.generated_tokens.forEach((t,i)=>{
+    const d=document.createElement("div"); d.className="tok"; d.dataset.i=i;
+    const txt=t.replace(/ /g,"·").replace(/\n/g,"↵")||"·";
+    d.innerHTML=`<span class="ix">${i}</span>${esc(txt)}<div class="coord-bar"></div>`;
+    d.addEventListener("click",e=>onFwdClick(i,e));
+    bar.appendChild(d);
   });
-  document.getElementById("frames-subtitle").textContent = `— ${META.h_patches}×${META.w_patches} patches per frame, temporal merge ×${META.temporal_merge_factor}`;
-  await loadFrames(); toggleStep(0); await fetchAndRender();
-  document.getElementById("loading").classList.add("hidden"); drawColormapBar();
 }
-function escapeHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-async function loadFrames() {
-  const grid = document.getElementById("frame-grid"); grid.innerHTML = ""; frameImages = [];
-  for (let i = 0; i < META.num_frames; i++) {
-    const tg = Math.floor(i / META.temporal_merge_factor);
-    const card = document.createElement("div"); card.className = "frame-card";
-    const header = document.createElement("div"); header.className = "frame-card-header";
-    header.innerHTML = `<span class="title">Frame ${i}</span><span class="tg-badge">TG ${tg}</span>`;
-    card.appendChild(header);
-    const wrap = document.createElement("div"); wrap.className = "frame-canvas-wrap";
-    const canvas = document.createElement("canvas"); canvas.id = `canvas-${i}`; wrap.appendChild(canvas); card.appendChild(wrap);
-    const footer = document.createElement("div"); footer.className = "frame-attn-score"; footer.id = `score-${i}`;
-    footer.innerHTML = `<span>Attn sum</span><span class="score-val">-</span>`; card.appendChild(footer);
-    grid.appendChild(card);
-    const img = new Image(); img.crossOrigin = "anonymous"; img.src = `/api/frames/${i}`; frameImages.push(img);
-    await new Promise(r => { img.onload = r; img.onerror = r; });
-    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-    canvas.getContext("2d").drawImage(img, 0, 0);
+function onFwdClick(i,e){
+  if(e.shiftKey&&fwdLast!==null){const lo=Math.min(fwdLast,i),hi=Math.max(fwdLast,i);for(let j=lo;j<=hi;j++)fwdSel.add(j);}
+  else{if(fwdSel.has(i))fwdSel.delete(i);else fwdSel.add(i);}
+  fwdLast=i; updateFwdTokenUI(); fetchForward();
+}
+
+function updateFwdTokenUI(){
+  document.querySelectorAll("#fwd-tokens .tok").forEach(d=>{
+    d.classList.toggle("fwd-sel",fwdSel.has(+d.dataset.i));
+  });
+  document.getElementById("fwd-stat").textContent=`${fwdSel.size} selected`;
+}
+
+async function loadFwdFrames(){
+  const strip=document.getElementById("fwd-frames"); strip.innerHTML="";
+  fwdImgs=[]; fwdCanvases=[];
+  for(let i=0;i<M.num_frames;i++){
+    const tg=Math.floor(i/M.temporal_merge_factor);
+    const card=document.createElement("div"); card.className="fcard";
+    card.innerHTML=`<div class="fcard-head"><span class="ft">Frame ${i}</span><span class="tg">TG ${tg}</span></div><div class="fcard-canvas"><canvas id="fc-${i}"></canvas></div><div class="fcard-foot"><span>Attn</span><span class="sv" id="fs-${i}">-</span></div>`;
+    strip.appendChild(card);
+    const img=new Image(); img.crossOrigin="anonymous"; img.src=`/api/frames/${i}`;
+    fwdImgs.push(img);
+    await new Promise(r=>{img.onload=r;img.onerror=r;});
+    const c=document.getElementById(`fc-${i}`);
+    c.width=img.naturalWidth; c.height=img.naturalHeight;
+    c.getContext("2d").drawImage(img,0,0);
+    fwdCanvases.push(c);
   }
 }
 
-function toggleStep(idx) { if (selectedSteps.has(idx)) selectedSteps.delete(idx); else selectedSteps.add(idx); updateTokenUI(); }
-function onTokenClick(idx, e) {
-  if (e.shiftKey && lastClickedStep !== null) {
-    const lo = Math.min(lastClickedStep, idx), hi = Math.max(lastClickedStep, idx);
-    for (let i = lo; i <= hi; i++) selectedSteps.add(i);
-  } else { toggleStep(idx); }
-  lastClickedStep = idx; updateTokenUI(); fetchAndRender();
-}
-function updateTokenUI() {
-  document.querySelectorAll(".token-chip").forEach(c => c.classList.toggle("selected", selectedSteps.has(parseInt(c.dataset.step))));
-  document.getElementById("sel-count").textContent = `${selectedSteps.size} selected`;
-}
-document.getElementById("btn-select-all").addEventListener("click", () => { for (let i=0;i<META.num_gen_steps;i++) selectedSteps.add(i); updateTokenUI(); fetchAndRender(); });
-document.getElementById("btn-clear").addEventListener("click", () => { selectedSteps.clear(); updateTokenUI(); renderFrames(); });
-
-document.getElementById("layer-slider").addEventListener("input", function() { document.getElementById("layer-value").textContent=`${this.value} / ${this.max}`; fetchAndRender(); });
-document.getElementById("head-select").addEventListener("change", () => fetchAndRender());
-document.getElementById("opacity-slider").addEventListener("input", function() { document.getElementById("opacity-value").textContent=`${this.value}%`; renderFrames(); });
-document.querySelectorAll("[data-agg]").forEach(btn => { btn.addEventListener("click", function() { document.querySelectorAll("[data-agg]").forEach(b=>b.classList.remove("active")); this.classList.add("active"); aggMode=this.dataset.agg; fetchAndRender(); }); });
-document.getElementById("cmap-select").addEventListener("change", function() { currentCmap=this.value; drawColormapBar(); renderFrames(); });
-
-async function fetchAndRender() {
-  if (selectedSteps.size === 0) { currentHeatmaps = null; renderFrames(); return; }
-  const layer = document.getElementById("layer-slider").value;
-  const head = document.getElementById("head-select").value;
-  const steps = Array.from(selectedSteps).sort((a,b)=>a-b).join(",");
-  const url = `/api/attention_multi?steps=${steps}&layer=${layer}&head=${head}&agg=${aggMode}`;
-  const fetchId = Symbol(); pendingFetch = fetchId;
-  try { const res = await fetch(url); if (pendingFetch!==fetchId) return; const data = await res.json(); currentHeatmaps = data.heatmaps; renderFrames(); } catch(e) { console.error(e); }
+async function fetchForward(){
+  if(fwdSel.size===0){fwdHeatmaps=null;fwdCoordHeatmaps=null;renderFwdFrames();renderBwdCoord();return;}
+  const layer=document.getElementById("layer-sl").value;
+  const head=document.getElementById("head-sel").value;
+  const steps=Array.from(fwdSel).sort((a,b)=>a-b).join(",");
+  const url=`/api/attention_multi?steps=${steps}&layer=${layer}&head=${head}&agg=${fwdAgg}`;
+  const id=Symbol(); pendingFwd=id;
+  try{
+    const r=await fetch(url); if(pendingFwd!==id)return;
+    const d=await r.json();
+    fwdHeatmaps=d.heatmaps;
+    fwdCoordHeatmaps=d.heatmaps; // share with backward for coordination
+    renderFwdFrames();
+    renderBwdCoord(); // update backward frames with coordination overlay
+  }catch(e){console.error(e);}
 }
 
-function renderFrames() {
-  const opacity = parseInt(document.getElementById("opacity-slider").value) / 100;
-  for (let i = 0; i < META.num_frames; i++) {
-    const canvas = document.getElementById(`canvas-${i}`); if (!canvas) continue;
-    const ctx = canvas.getContext("2d"); const img = frameImages[i];
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    if (img.complete && img.naturalWidth>0) ctx.drawImage(img,0,0);
-    const scoreEl = document.getElementById(`score-${i}`);
-    if (!currentHeatmaps || selectedSteps.size===0) { if(scoreEl) scoreEl.querySelector(".score-val").textContent="-"; continue; }
-    const tg = Math.floor(i / META.temporal_merge_factor);
-    const heatmap = currentHeatmaps[tg]; if (!heatmap) continue;
-    const hp=META.h_patches, wp=META.w_patches, cellW=canvas.width/wp, cellH=canvas.height/hp;
-    ctx.globalAlpha = opacity; let attnSum=0;
-    for (let r=0;r<hp;r++) for (let c=0;c<wp;c++) { const v=heatmap[r][c]; attnSum+=v; const[cr,cg,cb]=cmapColor(v,currentCmap); ctx.fillStyle=`rgb(${cr},${cg},${cb})`; ctx.fillRect(c*cellW,r*cellH,cellW+.5,cellH+.5); }
-    ctx.globalAlpha = 1.0;
-    if (scoreEl) scoreEl.querySelector(".score-val").textContent = attnSum.toFixed(4);
+function renderFwdFrames(){
+  const opac=parseInt(document.getElementById("opac-sl").value)/100;
+  for(let i=0;i<M.num_frames;i++){
+    const c=fwdCanvases[i]; if(!c)continue;
+    const ctx=c.getContext("2d"); const img=fwdImgs[i];
+    ctx.clearRect(0,0,c.width,c.height);
+    if(img.complete&&img.naturalWidth>0)ctx.drawImage(img,0,0);
+    const sEl=document.getElementById(`fs-${i}`);
+    if(!fwdHeatmaps||fwdSel.size===0){if(sEl)sEl.textContent="-";continue;}
+    const tg=Math.floor(i/M.temporal_merge_factor);
+    const hm=fwdHeatmaps[tg]; if(!hm)continue;
+    const hp=M.h_patches,wp=M.w_patches,cW=c.width/wp,cH=c.height/hp;
+    ctx.globalAlpha=opac; let sum=0;
+    for(let r=0;r<hp;r++)for(let cl=0;cl<wp;cl++){
+      const v=hm[r][cl]; sum+=v;
+      const[cr,cg,cb]=cc(v,cmap);
+      ctx.fillStyle=`rgb(${cr},${cg},${cb})`; ctx.fillRect(cl*cW,r*cH,cW+.5,cH+.5);
+    }
+    ctx.globalAlpha=1;
+    if(sEl)sEl.textContent=sum.toFixed(4);
   }
 }
-function drawColormapBar() { const c=document.getElementById("colormap-bar"),ctx=c.getContext("2d"); for(let x=0;x<c.width;x++){const t=x/(c.width-1),rgb=cmapColor(t,currentCmap);ctx.fillStyle=`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;ctx.fillRect(x,0,1,c.height);} }
+
+// ═════════════════════════════════════════════════════════════════════
+// Backward View
+// ═════════════════════════════════════════════════════════════════════
+function buildBwdTokens(){
+  const bar=document.getElementById("bwd-tokens"); bar.innerHTML="";
+  M.generated_tokens.forEach((t,i)=>{
+    const d=document.createElement("div"); d.className="tok-heat"; d.id=`bt-${i}`;
+    const txt=t.replace(/ /g,"·").replace(/\n/g,"↵")||"·";
+    d.innerHTML=`<span class="ix">${i}</span>${esc(txt)}<span class="tip" id="btp-${i}">-</span>`;
+    bar.appendChild(d);
+  });
+}
+
+async function loadBwdFrames(){
+  const strip=document.getElementById("bwd-frames"); strip.innerHTML="";
+  bwdImgs=[]; bwdCanvases=[];
+  for(let i=0;i<M.num_frames;i++){
+    const tg=Math.floor(i/M.temporal_merge_factor);
+    const card=document.createElement("div"); card.className="fcard";
+    card.innerHTML=`<div class="fcard-head"><span class="ft">Frame ${i}</span><span class="tg">TG ${tg}</span></div><div class="fcard-canvas"><canvas id="bc-${i}" data-fi="${i}" data-tg="${tg}"></canvas></div><div class="fcard-foot" id="bf-${i}">0 selected</div>`;
+    strip.appendChild(card);
+    const img=new Image(); img.crossOrigin="anonymous"; img.src=`/api/frames/${i}`;
+    bwdImgs.push(img);
+    await new Promise(r=>{img.onload=r;img.onerror=r;});
+    const c=document.getElementById(`bc-${i}`);
+    c.width=img.naturalWidth; c.height=img.naturalHeight;
+    bwdCanvases.push(c);
+    drawBwdFrame(i);
+
+    c.addEventListener("mousedown",e=>onBwdDown(e,c));
+    c.addEventListener("mousemove",e=>onBwdMove(e,c));
+    c.addEventListener("mouseup",()=>{isDrag=false;});
+    c.addEventListener("mouseleave",()=>{isDrag=false;});
+  }
+  document.addEventListener("mouseup",()=>{isDrag=false;});
+}
+
+function drawBwdFrame(fi){
+  const c=bwdCanvases[fi]; if(!c)return;
+  const ctx=c.getContext("2d"); const img=bwdImgs[fi];
+  const tg=Math.floor(fi/M.temporal_merge_factor);
+  ctx.clearRect(0,0,c.width,c.height);
+  if(img.complete&&img.naturalWidth>0)ctx.drawImage(img,0,0);
+
+  const hp=M.h_patches,wp=M.w_patches;
+  const cW=c.width/wp,cH=c.height/hp;
+
+  // Grid lines
+  ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.lineWidth=0.5;
+  for(let r=0;r<=hp;r++){ctx.beginPath();ctx.moveTo(0,r*cH);ctx.lineTo(c.width,r*cH);ctx.stroke();}
+  for(let cl=0;cl<=wp;cl++){ctx.beginPath();ctx.moveTo(cl*cW,0);ctx.lineTo(cl*cW,c.height);ctx.stroke();}
+
+  // Coordination: show forward heatmap as subtle overlay on backward frames
+  if(fwdCoordHeatmaps&&fwdSel.size>0){
+    const hm=fwdCoordHeatmaps[tg];
+    if(hm){
+      ctx.globalAlpha=0.18;
+      for(let r=0;r<hp;r++)for(let cl=0;cl<wp;cl++){
+        const v=hm[r][cl];
+        if(v>0.3){ // only show strong attention
+          const[cr,cg,cb]=cc(v,cmap);
+          ctx.fillStyle=`rgb(${cr},${cg},${cb})`;
+          ctx.fillRect(cl*cW,r*cH,cW,cH);
+        }
+      }
+      ctx.globalAlpha=1;
+    }
+  }
+
+  // Selected patches
+  let count=0;
+  for(let r=0;r<hp;r++)for(let cl=0;cl<wp;cl++){
+    if(bwdPatches.has(`${tg}:${r}:${cl}`)){
+      ctx.fillStyle="rgba(245,158,11,0.4)"; ctx.fillRect(cl*cW,r*cH,cW,cH);
+      ctx.strokeStyle="rgba(245,158,11,0.85)"; ctx.lineWidth=1.5;
+      ctx.strokeRect(cl*cW+.5,r*cH+.5,cW-1,cH-1);
+      count++;
+    }
+  }
+  const ft=document.getElementById(`bf-${fi}`);
+  if(ft)ft.textContent=`${count} selected`;
+}
+
+function bwdCell(e,c){
+  const r=c.getBoundingClientRect();
+  const x=(e.clientX-r.left)*(c.width/r.width);
+  const y=(e.clientY-r.top)*(c.height/r.height);
+  const col=Math.floor(x/(c.width/M.w_patches));
+  const row=Math.floor(y/(c.height/M.h_patches));
+  if(row<0||row>=M.h_patches||col<0||col>=M.w_patches)return null;
+  return{row,col,tg:+c.dataset.tg};
+}
+
+function onBwdDown(e,c){
+  e.preventDefault(); const cell=bwdCell(e,c); if(!cell)return;
+  isDrag=true; const k=`${cell.tg}:${cell.row}:${cell.col}`;
+  if(e.shiftKey){paintMode=false;bwdPatches.delete(k);}
+  else{if(bwdPatches.has(k)){bwdPatches.delete(k);paintMode=false;}else{bwdPatches.add(k);paintMode=true;}}
+  redrawBwd(); updateBwdStat(); fetchBackward();
+}
+
+function onBwdMove(e,c){
+  if(!isDrag)return; const cell=bwdCell(e,c); if(!cell)return;
+  const k=`${cell.tg}:${cell.row}:${cell.col}`;
+  if(paintMode){if(!bwdPatches.has(k)){bwdPatches.add(k);redrawBwd();updateBwdStat();}}
+  else{if(bwdPatches.has(k)){bwdPatches.delete(k);redrawBwd();updateBwdStat();}}
+}
+
+function redrawBwd(){for(let i=0;i<M.num_frames;i++)drawBwdFrame(i);}
+function updateBwdStat(){document.getElementById("bwd-stat").textContent=`${bwdPatches.size} patches`;}
+
+let bwdTimer=null;
+function fetchBackward(){clearTimeout(bwdTimer);bwdTimer=setTimeout(_fetchBwd,120);}
+
+async function _fetchBwd(){
+  if(bwdPatches.size===0){bwdScores=null;bwdScoresNorm=null;bwdCoordScores=null;renderBwdTokens();renderFwdCoord();return;}
+  const layer=+document.getElementById("layer-sl").value;
+  const head=document.getElementById("head-sel").value;
+  const patches=[];
+  for(const k of bwdPatches){const[tg,r,c]=k.split(":").map(Number);patches.push({tg,row:r,col:c});}
+  const id=Symbol(); pendingBwd=id;
+  try{
+    const res=await fetch("/api/attention_backward",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({patches,layer,head,agg:bwdAgg})});
+    if(pendingBwd!==id)return;
+    const d=await res.json();
+    bwdScores=d.scores; bwdScoresNorm=d.scores_norm;
+    bwdCoordScores=d.scores_norm; // coordination
+    renderBwdTokens();
+    renderFwdCoord(); // update forward token bar
+  }catch(e){console.error(e);}
+}
+
+function renderBwdTokens(){
+  for(let i=0;i<M.num_gen_steps;i++){
+    const el=document.getElementById(`bt-${i}`);
+    const tip=document.getElementById(`btp-${i}`);
+    if(!el)continue;
+    if(!bwdScoresNorm||bwdPatches.size===0){
+      el.style.background="var(--bg-raised)"; el.style.color="var(--text)";
+      el.style.borderColor="var(--border)";
+      if(tip)tip.textContent="-"; continue;
+    }
+    const n=bwdScoresNorm[i], raw=bwdScores[i];
+    const[r,g,b]=cc(n,cmap);
+    el.style.background=`rgb(${r},${g},${b})`;
+    el.style.borderColor=`rgba(${r},${g},${b},0.7)`;
+    const lum=.299*r+.587*g+.114*b;
+    el.style.color=lum>140?"#0a0b10":"#e8eaf0";
+    if(tip)tip.textContent=raw.toExponential(3);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Coordination: backward → forward
+// ═════════════════════════════════════════════════════════════════════
+function renderFwdCoord(){
+  // Show backward scores as a colored bottom bar on forward tokens
+  document.querySelectorAll("#fwd-tokens .tok .coord-bar").forEach((bar,i)=>{
+    if(!bwdCoordScores||bwdPatches.size===0){
+      bar.style.background="transparent"; return;
+    }
+    const n=bwdCoordScores[i]||0;
+    if(n>0.1){
+      const[r,g,b]=cc(n,cmap);
+      bar.style.background=`rgb(${r},${g},${b})`;
+    } else {
+      bar.style.background="transparent";
+    }
+  });
+}
+
+// Coordination: forward → backward
+function renderBwdCoord(){
+  // Forward heatmaps already shown as subtle overlay in drawBwdFrame
+  redrawBwd();
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Shared Controls
+// ═════════════════════════════════════════════════════════════════════
+document.getElementById("layer-sl").addEventListener("input",function(){
+  document.getElementById("layer-val").textContent=this.value;
+  fetchForward(); fetchBackward();
+});
+document.getElementById("head-sel").addEventListener("change",()=>{fetchForward();fetchBackward();});
+document.getElementById("opac-sl").addEventListener("input",function(){
+  document.getElementById("opac-val").textContent=this.value+"%"; renderFwdFrames();
+});
+document.getElementById("cmap-sel").addEventListener("change",function(){
+  cmap=this.value; drawCmapBar(); renderFwdFrames(); renderBwdTokens(); renderFwdCoord(); redrawBwd();
+});
+
+// Forward controls
+document.getElementById("fwd-all").addEventListener("click",()=>{for(let i=0;i<M.num_gen_steps;i++)fwdSel.add(i);updateFwdTokenUI();fetchForward();});
+document.getElementById("fwd-clear").addEventListener("click",()=>{fwdSel.clear();updateFwdTokenUI();fwdHeatmaps=null;fwdCoordHeatmaps=null;renderFwdFrames();renderBwdCoord();});
+document.querySelectorAll("[data-fwd-agg]").forEach(b=>{b.addEventListener("click",function(){document.querySelectorAll("[data-fwd-agg]").forEach(x=>x.classList.remove("active"));this.classList.add("active");fwdAgg=this.dataset.fwdAgg;fetchForward();});});
+
+// Backward controls
+document.getElementById("bwd-clear").addEventListener("click",()=>{bwdPatches.clear();redrawBwd();updateBwdStat();bwdScores=null;bwdScoresNorm=null;bwdCoordScores=null;renderBwdTokens();renderFwdCoord();});
+document.querySelectorAll("[data-bwd-agg]").forEach(b=>{b.addEventListener("click",function(){document.querySelectorAll("[data-bwd-agg]").forEach(x=>x.classList.remove("active"));this.classList.add("active");bwdAgg=this.dataset.bwdAgg;fetchBackward();});});
+
+function drawCmapBar(){
+  const c=document.getElementById("cmap-bar"),ctx=c.getContext("2d");
+  for(let x=0;x<c.width;x++){const t=x/(c.width-1);const[r,g,b]=cc(t,cmap);ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fillRect(x,0,1,c.height);}
+}
+
+// ═════════════════════════════════════════════════════════════════════
 init();
 </script>
 </body>
