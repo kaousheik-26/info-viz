@@ -1,0 +1,290 @@
+[
+  {
+    "model_key": "qwen_7B",
+    "video_key": "0G7rb74R-2A",
+    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "model_family": "qwen2_5_vl",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 98,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 1495,
+    "has_compression": false,
+    "attn_shape": [
+      98,
+      28,
+      1495
+    ]
+  },
+  {
+    "model_key": "qwen_7B",
+    "video_key": "KvrcRMfFzOE",
+    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "model_family": "qwen2_5_vl",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 147,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 1495,
+    "has_compression": false,
+    "attn_shape": [
+      147,
+      28,
+      1495
+    ]
+  },
+  {
+    "model_key": "qwen_7B",
+    "video_key": "OMGHnJV0l2U",
+    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "model_family": "qwen2_5_vl",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 39,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 1495,
+    "has_compression": false,
+    "attn_shape": [
+      39,
+      28,
+      1495
+    ]
+  },
+  {
+    "model_key": "qwen_7B",
+    "video_key": "XrJcmftCY04",
+    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "model_family": "qwen2_5_vl",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 131,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 1495,
+    "has_compression": false,
+    "attn_shape": [
+      131,
+      28,
+      1495
+    ]
+  },
+  {
+    "model_key": "qwen_7B",
+    "video_key": "_xylo5_IiaM",
+    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "model_family": "qwen2_5_vl",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 111,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 1495,
+    "has_compression": false,
+    "attn_shape": [
+      111,
+      28,
+      1495
+    ]
+  },
+  {
+    "model_key": "qwen_7B",
+    "video_key": "hrv6fwnmBkY",
+    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "model_family": "qwen2_5_vl",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 8,
+    "num_gen_steps": 26,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 1196,
+    "has_compression": false,
+    "attn_shape": [
+      26,
+      28,
+      1196
+    ]
+  },
+  {
+    "model_key": "qwen_7B",
+    "video_key": "rbO727iF03I",
+    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "model_family": "qwen2_5_vl",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 55,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 1495,
+    "has_compression": false,
+    "attn_shape": [
+      55,
+      28,
+      1495
+    ]
+  },
+  {
+    "model_key": "qwen_7B",
+    "video_key": "zIgGMlZENTs",
+    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "model_family": "qwen2_5_vl",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 81,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 700,
+    "has_compression": false,
+    "attn_shape": [
+      81,
+      28,
+      700
+    ]
+  },
+  {
+    "model_key": "videollama3_7B",
+    "video_key": "0G7rb74R-2A",
+    "model": "DAMO-NLP-SG/VideoLLaMA3-7B",
+    "model_family": "videollama3",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 36,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 2952,
+    "has_compression": true,
+    "attn_shape": [
+      36,
+      28,
+      2952
+    ]
+  },
+  {
+    "model_key": "videollama3_7B",
+    "video_key": "KvrcRMfFzOE",
+    "model": "DAMO-NLP-SG/VideoLLaMA3-7B",
+    "model_family": "videollama3",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 16,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 2975,
+    "has_compression": true,
+    "attn_shape": [
+      16,
+      28,
+      2975
+    ]
+  },
+  {
+    "model_key": "videollama3_7B",
+    "video_key": "OMGHnJV0l2U",
+    "model": "DAMO-NLP-SG/VideoLLaMA3-7B",
+    "model_family": "videollama3",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 45,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 2990,
+    "has_compression": true,
+    "attn_shape": [
+      45,
+      28,
+      2990
+    ]
+  },
+  {
+    "model_key": "videollama3_7B",
+    "video_key": "XrJcmftCY04",
+    "model": "DAMO-NLP-SG/VideoLLaMA3-7B",
+    "model_family": "videollama3",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 25,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 2893,
+    "has_compression": true,
+    "attn_shape": [
+      25,
+      28,
+      2893
+    ]
+  },
+  {
+    "model_key": "videollama3_7B",
+    "video_key": "_xylo5_IiaM",
+    "model": "DAMO-NLP-SG/VideoLLaMA3-7B",
+    "model_family": "videollama3",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 18,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 2990,
+    "has_compression": true,
+    "attn_shape": [
+      18,
+      28,
+      2990
+    ]
+  },
+  {
+    "model_key": "videollama3_7B",
+    "video_key": "hrv6fwnmBkY",
+    "model": "DAMO-NLP-SG/VideoLLaMA3-7B",
+    "model_family": "videollama3",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 9,
+    "num_gen_steps": 22,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 2691,
+    "has_compression": true,
+    "attn_shape": [
+      22,
+      28,
+      2691
+    ]
+  },
+  {
+    "model_key": "videollama3_7B",
+    "video_key": "rbO727iF03I",
+    "model": "DAMO-NLP-SG/VideoLLaMA3-7B",
+    "model_family": "videollama3",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 31,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 2990,
+    "has_compression": true,
+    "attn_shape": [
+      31,
+      28,
+      2990
+    ]
+  },
+  {
+    "model_key": "videollama3_7B",
+    "video_key": "zIgGMlZENTs",
+    "model": "DAMO-NLP-SG/VideoLLaMA3-7B",
+    "model_family": "videollama3",
+    "prompt": "Describe what you see in the video.",
+    "num_frames": 10,
+    "num_gen_steps": 43,
+    "num_layers": 28,
+    "num_heads": 28,
+    "num_video_tokens": 990,
+    "has_compression": true,
+    "attn_shape": [
+      43,
+      28,
+      990
+    ]
+  }
+]
