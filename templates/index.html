@@ -1,671 +1,976 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VLM Attention Visualizer</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap');
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VLM Attention Visualizer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap');
 
-  :root {
-    --bg:          #0a0b10;
-    --bg-panel:    #111318;
-    --bg-card:     #161921;
-    --bg-raised:   #1c1f2a;
-    --border:      #252936;
-    --border-hi:   #363c4f;
-    --text:        #b8bdc9;
-    --text-dim:    #5c6272;
-    --text-bright: #e8eaf0;
-    --accent:      #5b8def;
-    --accent-dim:  #253660;
-    --fwd-color:   #5b8def;
-    --fwd-dim:     #253660;
-    --bwd-color:   #f59e0b;
-    --bwd-dim:     rgba(245, 158, 11, 0.12);
-    --bwd-sel:     rgba(245, 158, 11, 0.45);
-    --coord-fwd:   rgba(91, 141, 239, 0.25);
-    --coord-bwd:   rgba(245, 158, 11, 0.18);
-    --mono:        'JetBrains Mono', monospace;
-    --sans:        'Outfit', -apple-system, sans-serif;
-    --radius:      6px;
-  }
+    :root {
+      --bg: #0a0b10;
+      --bg-panel: #111318;
+      --bg-card: #161921;
+      --bg-raised: #1c1f2a;
+      --border: #252936;
+      --border-hi: #363c4f;
+      --text: #b8bdc9;
+      --text-dim: #5c6272;
+      --text-bright: #e8eaf0;
+      --accent: #5b8def;
+      --accent-dim: #253660;
+      --fwd-color: #5b8def;
+      --fwd-dim: #253660;
+      --bwd-color: #f59e0b;
+      --bwd-dim: rgba(245, 158, 11, 0.12);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, .12);
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Outfit', -apple-system, sans-serif;
+      --radius: 6px;
+    }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-  /* ── Header ────────────────────────────────────── */
-  .header {
-    padding: 18px 28px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-panel);
-    display: flex; align-items: center; gap: 14px;
-  }
-  .header h1 { font-size: 17px; font-weight: 800; color: var(--text-bright); letter-spacing: -0.5px; }
-  .header .pill {
-    font-size: 10px; padding: 3px 9px; border-radius: 100px;
-    font-weight: 600; font-family: var(--mono);
-  }
-  .pill-model { background: var(--accent-dim); color: var(--accent); }
-  .pill-family { background: rgba(245,158,11,0.12); color: #f59e0b; }
-  .header .meta { font-size: 11px; color: var(--text-dim); font-family: var(--mono); margin-left: auto; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-  .prompt-bar {
-    padding: 9px 28px; font-size: 11px; color: var(--text-dim);
-    border-bottom: 1px solid var(--border); background: var(--bg);
-    font-family: var(--mono); display: flex; gap: 8px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .prompt-bar strong { color: var(--text); }
+    .hidden {
+      display: none !important;
+    }
 
-  /* ── Shared Controls ───────────────────────────── */
-  .controls {
-    padding: 12px 28px; border-bottom: 1px solid var(--border);
-    display: flex; gap: 28px; align-items: center; flex-wrap: wrap;
-    background: var(--bg-panel);
-  }
-  .ctrl { display: flex; align-items: center; gap: 8px; }
-  .ctrl label {
-    font-size: 10px; font-weight: 600; color: var(--text-dim);
-    text-transform: uppercase; letter-spacing: 0.6px;
-  }
-  .ctrl input[type="range"] { width: 160px; accent-color: var(--accent); }
-  .ctrl select {
-    font-family: var(--mono); font-size: 11px; padding: 4px 8px;
-    border-radius: var(--radius); border: 1px solid var(--border);
-    background: var(--bg-raised); color: var(--text); cursor: pointer;
-  }
-  .ctrl-val { font-family: var(--mono); font-size: 12px; color: var(--accent); min-width: 44px; }
+    /* ── Header ─────────────────────── */
+    .header {
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
 
-  .cmap-legend { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-  .cmap-legend canvas { border-radius: 2px; border: 1px solid var(--border); }
-  .cmap-legend span { font-family: var(--mono); font-size: 9px; color: var(--text-dim); }
+    .header h1 {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-bright);
+      letter-spacing: -.5px;
+    }
 
-  /* ── View Panels ───────────────────────────────── */
-  .view-panel {
-    border-bottom: 1px solid var(--border);
-    padding: 18px 28px 22px;
-  }
-  .view-header {
-    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
-  }
-  .view-tag {
-    font-size: 9px; font-weight: 700; letter-spacing: 1px;
-    text-transform: uppercase; padding: 3px 8px; border-radius: 3px;
-    font-family: var(--mono);
-  }
-  .view-tag-fwd { background: var(--fwd-dim); color: var(--fwd-color); }
-  .view-tag-bwd { background: var(--bwd-dim); color: var(--bwd-color); }
-  .view-desc { font-size: 12px; color: var(--text-dim); }
-  .view-actions {
-    display: flex; gap: 6px; align-items: center; margin-left: auto;
-  }
-  .view-actions button, .view-actions .btn-sm {
-    font-family: var(--sans); font-size: 11px; padding: 3px 10px;
-    border-radius: var(--radius); border: 1px solid var(--border);
-    background: var(--bg-raised); color: var(--text); cursor: pointer;
-    transition: all 0.12s;
-  }
-  .view-actions button:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-group-sm { display: flex; gap: 1px; }
-  .btn-group-sm button { border-radius: 0; }
-  .btn-group-sm button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
-  .btn-group-sm button:last-child  { border-radius: 0 var(--radius) var(--radius) 0; }
-  .btn-group-sm button.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-  .view-stat { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+    .pill {
+      font-size: 10px;
+      padding: 3px 9px;
+      border-radius: 100px;
+      font-weight: 600;
+      font-family: var(--mono);
+      display: inline-block;
+    }
 
-  /* ── Token Bars ────────────────────────────────── */
-  .token-bar {
-    display: flex; flex-wrap: wrap; gap: 3px;
-    max-height: 90px; overflow-y: auto; padding: 2px 0; margin-bottom: 12px;
-  }
-  .tok {
-    font-family: var(--mono); font-size: 11px;
-    padding: 3px 6px; border-radius: 3px;
-    border: 1px solid var(--border);
-    background: var(--bg-raised); color: var(--text);
-    cursor: pointer; transition: all 0.1s;
-    user-select: none; white-space: pre; line-height: 1.3;
-    position: relative;
-  }
-  .tok .ix { font-size: 8px; color: var(--text-dim); margin-right: 2px; vertical-align: super; }
-  .tok:hover { border-color: var(--accent); }
+    .pill-blue {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
 
-  /* Forward selected tokens */
-  .tok.fwd-sel {
-    border-color: var(--fwd-color); background: var(--fwd-dim); color: var(--fwd-color); font-weight: 600;
-  }
-  /* Backward coordination indicator on forward tokens */
-  .tok .coord-bar {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
-    border-radius: 0 0 2px 2px; background: transparent;
-  }
+    .pill-amber {
+      background: var(--bwd-dim);
+      color: var(--bwd-color);
+    }
 
-  /* Backward token heatmap */
-  .tok-heat {
-    font-family: var(--mono); font-size: 11px;
-    padding: 3px 6px; border-radius: 3px;
-    border: 1px solid var(--border);
-    background: var(--bg-raised); color: var(--text);
-    white-space: pre; line-height: 1.3;
-    position: relative; transition: all 0.1s;
-  }
-  .tok-heat .ix { font-size: 8px; color: var(--text-dim); margin-right: 2px; vertical-align: super; }
-  .tok-heat .tip {
-    display: none; position: absolute; bottom: calc(100% + 4px); left: 50%;
-    transform: translateX(-50%); padding: 2px 7px;
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: 3px; font-size: 9px; color: var(--bwd-color);
-    white-space: nowrap; z-index: 20;
-  }
-  .tok-heat:hover .tip { display: block; }
+    .pill-green {
+      background: var(--green-dim);
+      color: var(--green);
+    }
 
-  /* ── Frame Strips ──────────────────────────────── */
-  .frame-strip {
-    display: flex; gap: 10px; overflow-x: auto;
-    padding: 4px 0 8px; scroll-snap-type: x proximity;
-  }
-  .frame-strip::-webkit-scrollbar { height: 5px; }
-  .frame-strip::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .back-btn {
+      font-family: var(--sans);
+      font-size: 12px;
+      padding: 4px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-raised);
+      color: var(--text);
+      cursor: pointer;
+      transition: all .12s;
+      margin-left: auto;
+    }
 
-  .fcard {
-    flex: 0 0 auto; width: 260px;
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: var(--radius); overflow: hidden;
-    scroll-snap-align: start; transition: border-color 0.12s;
-  }
-  .fcard:hover { border-color: var(--border-hi); }
-  .fcard-head {
-    padding: 5px 10px; display: flex; justify-content: space-between;
-    align-items: center; border-bottom: 1px solid var(--border);
-    font-size: 10px;
-  }
-  .fcard-head .ft { font-weight: 600; color: var(--text-bright); }
-  .fcard-head .tg {
-    font-family: var(--mono); font-size: 9px; padding: 1px 5px;
-    border-radius: 3px; background: var(--bg-raised); color: var(--text-dim);
-  }
-  .fcard-canvas { position: relative; width: 100%; background: #000; }
-  .fcard-canvas canvas { display: block; width: 100%; height: auto; }
-  .fcard-foot {
-    padding: 4px 10px; font-family: var(--mono); font-size: 10px;
-    color: var(--text-dim); border-top: 1px solid var(--border);
-    display: flex; justify-content: space-between;
-  }
-  .fcard-foot .sv { color: var(--accent); }
+    .back-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
 
-  /* Backward frame cards with crosshair */
-  .bwd-strip .fcard-canvas { cursor: crosshair; }
+    /* ── Gallery ────────────────────── */
+    #gallery {
+      padding: 28px;
+    }
 
-  /* ── Loading ───────────────────────────────────── */
-  .loading {
-    position: fixed; inset: 0; background: rgba(10,11,16,0.92);
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; z-index: 100; gap: 14px;
-  }
-  .loading.hidden { display: none; }
-  .spin {
-    width: 28px; height: 28px; border: 3px solid var(--border);
-    border-top-color: var(--accent); border-radius: 50%;
-    animation: sp 0.7s linear infinite;
-  }
-  @keyframes sp { to { transform: rotate(360deg); } }
+    .gallery-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
 
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-</style>
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    .ex-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .ex-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+    }
+
+    .ex-thumb {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
+      background: #000;
+    }
+
+    .ex-body {
+      padding: 10px 14px;
+    }
+
+    .ex-top {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .ex-prompt {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .ex-meta {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* ── Config Page ────────────────── */
+    #config {
+      padding: 32px 28px;
+    }
+
+    .cfg-video-info {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .cfg-video-info .cfg-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 6px;
+    }
+
+    .cfg-video-info .cfg-prompt {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .cfg-section {
+      margin-bottom: 28px;
+    }
+
+    .cfg-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .model-cards {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .model-card {
+      width: 260px;
+      padding: 18px 20px;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all .15s;
+      text-align: left;
+    }
+
+    .model-card:hover {
+      border-color: var(--border-hi);
+      transform: translateY(-1px);
+    }
+
+    .model-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .model-card .mc-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 4px;
+    }
+
+    .model-card .mc-family {
+      margin-bottom: 6px;
+    }
+
+    .model-card .mc-stats {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .mode-cards {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .mode-card {
+      width: 260px;
+      padding: 20px;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all .15s;
+      text-align: left;
+      opacity: .4;
+      pointer-events: none;
+    }
+
+    .mode-card.enabled {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mode-card.enabled:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+    }
+
+    .mode-card.mc-fwd.enabled:hover {
+      border-color: var(--fwd-color);
+    }
+
+    .mode-card.mc-bwd.enabled:hover {
+      border-color: var(--bwd-color);
+    }
+
+    .mode-card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 6px;
+    }
+
+    .mode-card p {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .mode-card .mc-tag {
+      margin-bottom: 10px;
+    }
+
+    .cfg-hint {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      font-family: var(--mono);
+    }
+
+    /* ── Detail View ────────────────── */
+    .prompt-bar {
+      padding: 8px 28px;
+      font-size: 11px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      font-family: var(--mono);
+      display: flex;
+      gap: 8px;
+    }
+
+    .prompt-bar strong {
+      color: var(--text);
+    }
+
+    .controls {
+      padding: 10px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+      background: var(--bg-panel);
+    }
+
+    .ctrl {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .ctrl label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .ctrl input[type="range"] {
+      width: 150px;
+      accent-color: var(--accent);
+    }
+
+    .ctrl select {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-raised);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .ctrl-val {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      min-width: 40px;
+    }
+
+    .cmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: auto;
+    }
+
+    .cmap-legend canvas {
+      border-radius: 2px;
+      border: 1px solid var(--border);
+    }
+
+    .cmap-legend span {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    .view-panel {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px 20px;
+    }
+
+    .view-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .view-tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-family: var(--mono);
+    }
+
+    .view-tag-fwd {
+      background: var(--fwd-dim);
+      color: var(--fwd-color);
+    }
+
+    .view-tag-bwd {
+      background: var(--bwd-dim);
+      color: var(--bwd-color);
+    }
+
+    .view-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .view-actions {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      margin-left: auto;
+    }
+
+    .view-actions button {
+      font-family: var(--sans);
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-raised);
+      color: var(--text);
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .view-actions button:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-group-sm {
+      display: flex;
+      gap: 1px;
+    }
+
+    .btn-group-sm button {
+      border-radius: 0;
+    }
+
+    .btn-group-sm button:first-child {
+      border-radius: var(--radius) 0 0 var(--radius);
+    }
+
+    .btn-group-sm button:last-child {
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+
+    .btn-group-sm button.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .view-stat {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+
+    .token-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      max-height: 85px;
+      overflow-y: auto;
+      padding: 2px 0;
+      margin-bottom: 10px;
+    }
+
+    .tok {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: var(--bg-raised);
+      color: var(--text);
+      cursor: pointer;
+      transition: all .1s;
+      user-select: none;
+      white-space: pre;
+      line-height: 1.3;
+      position: relative;
+    }
+
+    .tok .ix {
+      font-size: 8px;
+      color: var(--text-dim);
+      margin-right: 2px;
+      vertical-align: super;
+    }
+
+    .tok:hover {
+      border-color: var(--accent);
+    }
+
+    .tok.fwd-sel {
+      border-color: var(--fwd-color);
+      background: var(--fwd-dim);
+      color: var(--fwd-color);
+      font-weight: 600;
+    }
+
+    .tok .coord-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      border-radius: 0 0 2px 2px;
+      background: transparent;
+    }
+
+    .tok-heat {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: var(--bg-raised);
+      color: var(--text);
+      white-space: pre;
+      line-height: 1.3;
+      position: relative;
+      transition: all .1s;
+    }
+
+    .tok-heat .ix {
+      font-size: 8px;
+      color: var(--text-dim);
+      margin-right: 2px;
+      vertical-align: super;
+    }
+
+    .tok-heat .tip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 2px 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 9px;
+      color: var(--bwd-color);
+      white-space: nowrap;
+      z-index: 20;
+    }
+
+    .tok-heat:hover .tip {
+      display: block;
+    }
+
+    .frame-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 0 6px;
+      scroll-snap-type: x proximity;
+    }
+
+    .frame-strip::-webkit-scrollbar {
+      height: 5px;
+    }
+
+    .frame-strip::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .fcard {
+      flex: 0 0 auto;
+      width: 240px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      scroll-snap-align: start;
+      transition: border-color .12s;
+    }
+
+    .fcard:hover {
+      border-color: var(--border-hi);
+    }
+
+    .fcard-head {
+      padding: 4px 9px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+    }
+
+    .fcard-head .ft {
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .fcard-head .tg {
+      font-family: var(--mono);
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--bg-raised);
+      color: var(--text-dim);
+    }
+
+    .fcard-canvas {
+      position: relative;
+      width: 100%;
+      background: #000;
+    }
+
+    .fcard-canvas canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .fcard-foot {
+      padding: 3px 9px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .fcard-foot .sv {
+      color: var(--accent);
+    }
+
+    .bwd-strip .fcard-canvas {
+      cursor: crosshair;
+    }
+
+    .loading {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 11, 16, .92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      gap: 12px;
+    }
+
+    .loading.hidden {
+      display: none;
+    }
+
+    .spin {
+      width: 26px;
+      height: 26px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: sp .7s linear infinite;
+    }
+
+    @keyframes sp {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="loading" id="loading">
-  <div class="spin"></div>
-  <div style="font-size:13px;color:var(--text-dim)">Loading attention data</div>
-</div>
+  <div class="loading" id="loading">
+    <div class="spin"></div>
+    <div style="font-size:13px;color:var(--text-dim)">Loading</div>
+  </div>
 
-<!-- HEADER -->
-<div class="header">
-  <h1>VLM Attention Visualizer</h1>
-  <span class="pill pill-model" id="hd-model">-</span>
-  <span class="pill pill-family" id="hd-family">-</span>
-  <span class="meta" id="hd-stats">-</span>
-</div>
-<div class="prompt-bar">
-  <strong>Prompt:</strong> <span id="hd-prompt">-</span>
-</div>
-
-<!-- SHARED CONTROLS -->
-<div class="controls">
-  <div class="ctrl">
-    <label>Layer</label>
-    <input type="range" id="layer-sl" min="0" max="0" value="0">
-    <span class="ctrl-val" id="layer-val">0</span>
-  </div>
-  <div class="ctrl">
-    <label>Head</label>
-    <select id="head-sel"><option value="avg" selected>Avg</option></select>
-  </div>
-  <div class="ctrl">
-    <label>Opacity</label>
-    <input type="range" id="opac-sl" min="0" max="100" value="55">
-    <span class="ctrl-val" id="opac-val">55%</span>
-  </div>
-  <div class="ctrl">
-    <label>Cmap</label>
-    <select id="cmap-sel">
-      <option value="inferno" selected>Inferno</option>
-      <option value="hot">Hot</option>
-      <option value="viridis">Viridis</option>
-      <option value="plasma">Plasma</option>
-      <option value="magma">Magma</option>
-      <option value="turbo">Turbo</option>
-    </select>
-  </div>
-  <div class="cmap-legend">
-    <span>Low</span>
-    <canvas id="cmap-bar" width="100" height="10"></canvas>
-    <span>High</span>
-  </div>
-</div>
-
-<!-- ═══ FORWARD VIEW ═══ -->
-<div class="view-panel" id="fwd-panel">
-  <div class="view-header">
-    <span class="view-tag view-tag-fwd">FORWARD</span>
-    <span class="view-desc">Select tokens → see where the model looked in each frame</span>
-    <div class="view-actions">
-      <button id="fwd-all">Select All</button>
-      <button id="fwd-clear">Clear</button>
-      <div class="btn-group-sm">
-        <button class="active" data-fwd-agg="mean">Mean</button>
-        <button data-fwd-agg="max">Max</button>
-      </div>
-      <span class="view-stat" id="fwd-stat">0 selected</span>
+  <!-- ═══ GALLERY ═══ -->
+  <div id="gallery-view">
+    <div class="header">
+      <h1>VLM Attention Visualizer</h1>
+    </div>
+    <div id="gallery">
+      <div class="gallery-title">Select a video</div>
+      <div class="gallery-grid" id="gallery-grid"></div>
     </div>
   </div>
-  <div class="token-bar" id="fwd-tokens"></div>
-  <div class="frame-strip" id="fwd-frames"></div>
-</div>
 
-<!-- ═══ BACKWARD VIEW ═══ -->
-<div class="view-panel" id="bwd-panel">
-  <div class="view-header">
-    <span class="view-tag view-tag-bwd">BACKWARD</span>
-    <span class="view-desc">Select patches on frames → see which tokens they influenced</span>
-    <div class="view-actions">
-      <button id="bwd-clear">Clear</button>
-      <div class="btn-group-sm">
-        <button class="active" data-bwd-agg="sum">Sum</button>
-        <button data-bwd-agg="mean">Mean</button>
+  <!-- ═══ CONFIG: model + mode ═══ -->
+  <div id="config-view" class="hidden">
+    <div class="header">
+      <h1>VLM Attention Visualizer</h1>
+      <button class="back-btn" id="config-back">&larr; All Videos</button>
+    </div>
+    <div id="config">
+      <div class="cfg-video-info">
+        <div class="cfg-name" id="cfg-name">-</div>
+        <div class="cfg-prompt" id="cfg-prompt">-</div>
       </div>
-      <span class="view-stat" id="bwd-stat">0 patches</span>
+
+      <div class="cfg-section">
+        <div class="cfg-label">1. Choose Model</div>
+        <div class="model-cards" id="model-cards"></div>
+      </div>
+
+      <div class="cfg-section">
+        <div class="cfg-label">2. Choose Analysis Mode</div>
+        <div class="mode-cards" id="mode-cards">
+          <div class="mode-card mc-fwd" id="btn-fwd">
+            <span class="pill view-tag view-tag-fwd mc-tag">FORWARD</span>
+            <h3>Tokens → Frames</h3>
+            <p>Select generated tokens and see where the model looked in each video frame.</p>
+          </div>
+          <div class="mode-card mc-bwd" id="btn-bwd">
+            <span class="pill view-tag view-tag-bwd mc-tag">BACKWARD</span>
+            <h3>Patches → Tokens</h3>
+            <p>Select regions on video frames and see which generated tokens they influenced.</p>
+          </div>
+        </div>
+        <div class="cfg-hint" id="cfg-hint">Select a model first</div>
+      </div>
     </div>
   </div>
-  <div class="frame-strip bwd-strip" id="bwd-frames"></div>
-  <div class="token-bar" id="bwd-tokens" style="margin-top:12px"></div>
-</div>
 
-<script>
-// ═════════════════════════════════════════════════════════════════════
-// Colormaps
-// ═════════════════════════════════════════════════════════════════════
-const CM={};
-function bLUT(kp){const l=new Array(256);for(let i=0;i<256;i++){const t=i/255;let a=kp[0],b=kp[kp.length-1];for(let k=0;k<kp.length-1;k++){if(t>=kp[k][0]&&t<=kp[k+1][0]){a=kp[k];b=kp[k+1];break;}}const f=(b[0]-a[0])>0?(t-a[0])/(b[0]-a[0]):0;l[i]=[Math.round(a[1]+f*(b[1]-a[1])),Math.round(a[2]+f*(b[2]-a[2])),Math.round(a[3]+f*(b[3]-a[3]))];}return l;}
-CM.inferno=bLUT([[0,0,0,4],[.13,31,12,72],[.25,85,15,109],[.38,136,34,106],[.5,186,54,85],[.63,227,89,51],[.75,249,140,10],[.88,249,200,40],[1,252,255,164]]);
-CM.hot=bLUT([[0,0,0,0],[.33,230,0,0],[.66,255,200,0],[1,255,255,255]]);
-CM.viridis=bLUT([[0,68,1,84],[.13,72,35,116],[.25,64,67,135],[.38,52,94,141],[.5,33,145,140],[.63,53,183,121],[.75,109,205,89],[.88,180,222,44],[1,253,231,37]]);
-CM.plasma=bLUT([[0,13,8,135],[.13,75,3,161],[.25,126,3,168],[.38,168,34,150],[.5,203,70,121],[.63,229,107,93],[.75,248,148,65],[.88,253,195,40],[1,240,249,33]]);
-CM.magma=bLUT([[0,0,0,4],[.13,28,16,68],[.25,79,18,123],[.38,129,37,129],[.5,181,54,122],[.63,229,80,100],[.75,251,135,97],[.88,254,194,140],[1,252,253,191]]);
-CM.turbo=bLUT([[0,48,18,59],[.13,67,96,211],[.25,30,156,240],[.38,18,206,170],[.5,82,237,93],[.63,183,243,33],[.75,243,195,28],[.88,244,116,15],[1,122,4,3]]);
-function cc(t,n){const l=CM[n]||CM.inferno;return l[Math.max(0,Math.min(255,Math.round(t*255)))];}
+  <!-- ═══ DETAIL ═══ -->
+  <div id="detail-view" class="hidden">
+    <div class="header">
+      <h1>VLM Attention Visualizer</h1>
+      <span class="pill pill-blue" id="dt-model">-</span>
+      <span class="pill pill-amber" id="dt-family">-</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text-dim)" id="dt-stats">-</span>
+      <button class="back-btn" id="detail-back">&larr; Back</button>
+    </div>
+    <div class="prompt-bar"><strong>Prompt:</strong> <span id="dt-prompt">-</span></div>
+    <div class="controls">
+      <div class="ctrl"><label>Layer</label><input type="range" id="layer-sl" min="0" max="0" value="0"><span
+          class="ctrl-val" id="layer-val">0</span></div>
+      <div class="ctrl"><label>Head</label><select id="head-sel">
+          <option value="avg" selected>Avg</option>
+        </select></div>
+      <div class="ctrl"><label>Opacity</label><input type="range" id="opac-sl" min="0" max="100" value="55"><span
+          class="ctrl-val" id="opac-val">55%</span></div>
+      <div class="ctrl"><label>Cmap</label><select id="cmap-sel">
+          <option value="inferno" selected>Inferno</option>
+          <option value="hot">Hot</option>
+          <option value="viridis">Viridis</option>
+          <option value="plasma">Plasma</option>
+          <option value="magma">Magma</option>
+          <option value="turbo">Turbo</option>
+        </select></div>
+      <div class="cmap-legend"><span>Low</span><canvas id="cmap-bar" width="90" height="10"></canvas><span>High</span>
+      </div>
+    </div>
+    <!-- Forward panel -->
+    <div class="view-panel" id="fwd-panel">
+      <div class="view-header">
+        <span class="view-tag view-tag-fwd">FORWARD</span>
+        <span class="view-desc">Select tokens → see where the model looked</span>
+        <div class="view-actions"><button id="fwd-all">All</button><button id="fwd-clear">Clear</button>
+          <div class="btn-group-sm"><button class="active" data-fwd-agg="mean">Mean</button><button
+              data-fwd-agg="max">Max</button></div><span class="view-stat" id="fwd-stat">0</span>
+        </div>
+      </div>
+      <div class="token-bar" id="fwd-tokens"></div>
+      <div class="frame-strip" id="fwd-frames"></div>
+    </div>
+    <!-- Backward panel -->
+    <div class="view-panel" id="bwd-panel">
+      <div class="view-header">
+        <span class="view-tag view-tag-bwd">BACKWARD</span>
+        <span class="view-desc">Select patches → see which tokens they influenced</span>
+        <div class="view-actions"><button id="bwd-clear">Clear</button>
+          <div class="btn-group-sm"><button class="active" data-bwd-agg="sum">Sum</button><button
+              data-bwd-agg="mean">Mean</button></div><span class="view-stat" id="bwd-stat">0</span>
+        </div>
+      </div>
+      <div class="frame-strip bwd-strip" id="bwd-frames"></div>
+      <div class="token-bar" id="bwd-tokens" style="margin-top:10px"></div>
+    </div>
+  </div>
 
-// ═════════════════════════════════════════════════════════════════════
-// State
-// ═════════════════════════════════════════════════════════════════════
-let M=null;
-let cmap="inferno", fwdAgg="mean", bwdAgg="sum";
+  <script>
+    // ═══ Colormaps ═══
+    const CM = {}; function bLUT(kp) { const l = new Array(256); for (let i = 0; i < 256; i++) { const t = i / 255; let a = kp[0], b = kp[kp.length - 1]; for (let k = 0; k < kp.length - 1; k++) { if (t >= kp[k][0] && t <= kp[k + 1][0]) { a = kp[k]; b = kp[k + 1]; break; } } const f = (b[0] - a[0]) > 0 ? (t - a[0]) / (b[0] - a[0]) : 0; l[i] = [Math.round(a[1] + f * (b[1] - a[1])), Math.round(a[2] + f * (b[2] - a[2])), Math.round(a[3] + f * (b[3] - a[3]))]; } return l; }
+    CM.inferno = bLUT([[0, 0, 0, 4], [.13, 31, 12, 72], [.25, 85, 15, 109], [.38, 136, 34, 106], [.5, 186, 54, 85], [.63, 227, 89, 51], [.75, 249, 140, 10], [.88, 249, 200, 40], [1, 252, 255, 164]]);
+    CM.hot = bLUT([[0, 0, 0, 0], [.33, 230, 0, 0], [.66, 255, 200, 0], [1, 255, 255, 255]]); CM.viridis = bLUT([[0, 68, 1, 84], [.13, 72, 35, 116], [.25, 64, 67, 135], [.38, 52, 94, 141], [.5, 33, 145, 140], [.63, 53, 183, 121], [.75, 109, 205, 89], [.88, 180, 222, 44], [1, 253, 231, 37]]); CM.plasma = bLUT([[0, 13, 8, 135], [.13, 75, 3, 161], [.25, 126, 3, 168], [.38, 168, 34, 150], [.5, 203, 70, 121], [.63, 229, 107, 93], [.75, 248, 148, 65], [.88, 253, 195, 40], [1, 240, 249, 33]]); CM.magma = bLUT([[0, 0, 0, 4], [.13, 28, 16, 68], [.25, 79, 18, 123], [.38, 129, 37, 129], [.5, 181, 54, 122], [.63, 229, 80, 100], [.75, 251, 135, 97], [.88, 254, 194, 140], [1, 252, 253, 191]]); CM.turbo = bLUT([[0, 48, 18, 59], [.13, 67, 96, 211], [.25, 30, 156, 240], [.38, 18, 206, 170], [.5, 82, 237, 93], [.63, 183, 243, 33], [.75, 243, 195, 28], [.88, 244, 116, 15], [1, 122, 4, 3]]);
+    function cc(t, n) { const l = CM[n] || CM.inferno; return l[Math.max(0, Math.min(255, Math.round(t * 255)))]; }
 
-// Forward state
-let fwdSel=new Set(), fwdLast=null, fwdHeatmaps=null;
-let fwdImgs=[], fwdCanvases=[];
+    // ═══ State ═══
+    let allExamples = [], curVideoData = null, M = null, curModel = "", curVideo = "", curMode = "";
+    let cmap = "inferno", fwdAgg = "mean", bwdAgg = "sum";
+    let fwdSel = new Set(), fwdLast = null, fwdHeatmaps = null, fwdImgs = [], fwdCanvases = [];
+    let bwdPatches = new Set(), bwdScores = null, bwdScoresNorm = null, bwdImgs = [], bwdCanvases = [];
+    let isDrag = false, paintMode = true, pendingFwd = null, pendingBwd = null;
+    let selectedModelKey = null;
 
-// Backward state
-let bwdPatches=new Set(), bwdScores=null, bwdScoresNorm=null;
-let bwdImgs=[], bwdCanvases=[];
-let isDrag=false, paintMode=true;
+    function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function apiBase() { return `/api/example/${curModel}/${curVideo}`; }
+    function showView(n) { ["gallery-view", "config-view", "detail-view"].forEach(v => document.getElementById(v).classList.toggle("hidden", v !== n + "-view")); }
 
-// Coordination
-let bwdCoordScores=null;  // backward scores shown on forward token bar
-let fwdCoordHeatmaps=null; // forward heatmaps shown on backward frames
-
-let pendingFwd=null, pendingBwd=null;
-
-// ═════════════════════════════════════════════════════════════════════
-// Init
-// ═════════════════════════════════════════════════════════════════════
-async function init(){
-  const r=await fetch("/api/metadata"); M=await r.json();
-
-  // Header
-  document.getElementById("hd-model").textContent=M.model.split("/").pop();
-  document.getElementById("hd-family").textContent=M.model_family||"unknown";
-  document.getElementById("hd-stats").textContent=`${M.num_layers}L · ${M.num_heads}H · ${M.num_frames}F · ${M.num_gen_steps}T`;
-  document.getElementById("hd-prompt").textContent=M.prompt;
-
-  // Controls
-  const ls=document.getElementById("layer-sl"); ls.max=M.num_layers-1; ls.value=M.num_layers-1;
-  document.getElementById("layer-val").textContent=ls.value;
-  if(M.has_full_attention){const h=document.getElementById("head-sel");for(let i=0;i<M.num_heads;i++){const o=document.createElement("option");o.value=i;o.textContent=`H${i}`;h.appendChild(o);}}
-
-  // Build forward tokens
-  buildFwdTokens();
-  // Build backward tokens
-  buildBwdTokens();
-  // Load frames for both views
-  await Promise.all([loadFwdFrames(), loadBwdFrames()]);
-
-  // Default: select first token in forward
-  fwdSel.add(0); updateFwdTokenUI(); fetchForward();
-
-  document.getElementById("loading").classList.add("hidden");
-  drawCmapBar();
-}
-
-function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-
-// ═════════════════════════════════════════════════════════════════════
-// Forward View
-// ═════════════════════════════════════════════════════════════════════
-function buildFwdTokens(){
-  const bar=document.getElementById("fwd-tokens"); bar.innerHTML="";
-  M.generated_tokens.forEach((t,i)=>{
-    const d=document.createElement("div"); d.className="tok"; d.dataset.i=i;
-    const txt=t.replace(/ /g,"·").replace(/\n/g,"↵")||"·";
-    d.innerHTML=`<span class="ix">${i}</span>${esc(txt)}<div class="coord-bar"></div>`;
-    d.addEventListener("click",e=>onFwdClick(i,e));
-    bar.appendChild(d);
-  });
-}
-
-function onFwdClick(i,e){
-  if(e.shiftKey&&fwdLast!==null){const lo=Math.min(fwdLast,i),hi=Math.max(fwdLast,i);for(let j=lo;j<=hi;j++)fwdSel.add(j);}
-  else{if(fwdSel.has(i))fwdSel.delete(i);else fwdSel.add(i);}
-  fwdLast=i; updateFwdTokenUI(); fetchForward();
-}
-
-function updateFwdTokenUI(){
-  document.querySelectorAll("#fwd-tokens .tok").forEach(d=>{
-    d.classList.toggle("fwd-sel",fwdSel.has(+d.dataset.i));
-  });
-  document.getElementById("fwd-stat").textContent=`${fwdSel.size} selected`;
-}
-
-async function loadFwdFrames(){
-  const strip=document.getElementById("fwd-frames"); strip.innerHTML="";
-  fwdImgs=[]; fwdCanvases=[];
-  for(let i=0;i<M.num_frames;i++){
-    const tg=Math.floor(i/M.temporal_merge_factor);
-    const card=document.createElement("div"); card.className="fcard";
-    card.innerHTML=`<div class="fcard-head"><span class="ft">Frame ${i}</span><span class="tg">TG ${tg}</span></div><div class="fcard-canvas"><canvas id="fc-${i}"></canvas></div><div class="fcard-foot"><span>Attn</span><span class="sv" id="fs-${i}">-</span></div>`;
-    strip.appendChild(card);
-    const img=new Image(); img.crossOrigin="anonymous"; img.src=`/api/frames/${i}`;
-    fwdImgs.push(img);
-    await new Promise(r=>{img.onload=r;img.onerror=r;});
-    const c=document.getElementById(`fc-${i}`);
-    c.width=img.naturalWidth; c.height=img.naturalHeight;
-    c.getContext("2d").drawImage(img,0,0);
-    fwdCanvases.push(c);
-  }
-}
-
-async function fetchForward(){
-  if(fwdSel.size===0){fwdHeatmaps=null;fwdCoordHeatmaps=null;renderFwdFrames();renderBwdCoord();return;}
-  const layer=document.getElementById("layer-sl").value;
-  const head=document.getElementById("head-sel").value;
-  const steps=Array.from(fwdSel).sort((a,b)=>a-b).join(",");
-  const url=`/api/attention_multi?steps=${steps}&layer=${layer}&head=${head}&agg=${fwdAgg}`;
-  const id=Symbol(); pendingFwd=id;
-  try{
-    const r=await fetch(url); if(pendingFwd!==id)return;
-    const d=await r.json();
-    fwdHeatmaps=d.heatmaps;
-    fwdCoordHeatmaps=d.heatmaps; // share with backward for coordination
-    renderFwdFrames();
-    renderBwdCoord(); // update backward frames with coordination overlay
-  }catch(e){console.error(e);}
-}
-
-function renderFwdFrames(){
-  const opac=parseInt(document.getElementById("opac-sl").value)/100;
-  for(let i=0;i<M.num_frames;i++){
-    const c=fwdCanvases[i]; if(!c)continue;
-    const ctx=c.getContext("2d"); const img=fwdImgs[i];
-    ctx.clearRect(0,0,c.width,c.height);
-    if(img.complete&&img.naturalWidth>0)ctx.drawImage(img,0,0);
-    const sEl=document.getElementById(`fs-${i}`);
-    if(!fwdHeatmaps||fwdSel.size===0){if(sEl)sEl.textContent="-";continue;}
-    const tg=Math.floor(i/M.temporal_merge_factor);
-    const hm=fwdHeatmaps[tg]; if(!hm)continue;
-    const hp=M.h_patches,wp=M.w_patches,cW=c.width/wp,cH=c.height/hp;
-    ctx.globalAlpha=opac; let sum=0;
-    for(let r=0;r<hp;r++)for(let cl=0;cl<wp;cl++){
-      const v=hm[r][cl]; sum+=v;
-      const[cr,cg,cb]=cc(v,cmap);
-      ctx.fillStyle=`rgb(${cr},${cg},${cb})`; ctx.fillRect(cl*cW,r*cH,cW+.5,cH+.5);
+    // ═══ Gallery ═══
+    async function loadGallery() {
+      const r = await fetch("/api/examples"); allExamples = await r.json();
+      const grid = document.getElementById("gallery-grid"); grid.innerHTML = "";
+      allExamples.forEach(vid => {
+        const card = document.createElement("div"); card.className = "ex-card";
+        const thumbUrl = `/api/example/${vid.thumb_model}/${vid.video_key}/frames/0`;
+        const modelNames = vid.models.map(m => m.model_key).join(", ");
+        card.innerHTML = `
+      <img class="ex-thumb" src="${thumbUrl}" alt="" onerror="this.style.display='none'">
+      <div class="ex-body">
+        <div class="ex-top"><span class="pill pill-green">${vid.video_key}</span></div>
+        <div class="ex-prompt">${esc(vid.prompt)}</div>
+        <div class="ex-meta">${vid.num_frames}F · Models: ${modelNames}</div>
+      </div>`;
+        card.addEventListener("click", () => openConfig(vid));
+        grid.appendChild(card);
+      });
+      document.getElementById("loading").classList.add("hidden");
     }
-    ctx.globalAlpha=1;
-    if(sEl)sEl.textContent=sum.toFixed(4);
-  }
-}
 
-// ═════════════════════════════════════════════════════════════════════
-// Backward View
-// ═════════════════════════════════════════════════════════════════════
-function buildBwdTokens(){
-  const bar=document.getElementById("bwd-tokens"); bar.innerHTML="";
-  M.generated_tokens.forEach((t,i)=>{
-    const d=document.createElement("div"); d.className="tok-heat"; d.id=`bt-${i}`;
-    const txt=t.replace(/ /g,"·").replace(/\n/g,"↵")||"·";
-    d.innerHTML=`<span class="ix">${i}</span>${esc(txt)}<span class="tip" id="btp-${i}">-</span>`;
-    bar.appendChild(d);
-  });
-}
+    // ═══ Config ═══
+    function openConfig(vid) {
+      curVideoData = vid; curVideo = vid.video_key; selectedModelKey = null;
+      document.getElementById("cfg-name").textContent = vid.video_key;
+      document.getElementById("cfg-prompt").textContent = vid.prompt;
 
-async function loadBwdFrames(){
-  const strip=document.getElementById("bwd-frames"); strip.innerHTML="";
-  bwdImgs=[]; bwdCanvases=[];
-  for(let i=0;i<M.num_frames;i++){
-    const tg=Math.floor(i/M.temporal_merge_factor);
-    const card=document.createElement("div"); card.className="fcard";
-    card.innerHTML=`<div class="fcard-head"><span class="ft">Frame ${i}</span><span class="tg">TG ${tg}</span></div><div class="fcard-canvas"><canvas id="bc-${i}" data-fi="${i}" data-tg="${tg}"></canvas></div><div class="fcard-foot" id="bf-${i}">0 selected</div>`;
-    strip.appendChild(card);
-    const img=new Image(); img.crossOrigin="anonymous"; img.src=`/api/frames/${i}`;
-    bwdImgs.push(img);
-    await new Promise(r=>{img.onload=r;img.onerror=r;});
-    const c=document.getElementById(`bc-${i}`);
-    c.width=img.naturalWidth; c.height=img.naturalHeight;
-    bwdCanvases.push(c);
-    drawBwdFrame(i);
+      // Model cards
+      const mc = document.getElementById("model-cards"); mc.innerHTML = "";
+      vid.models.forEach(m => {
+        const card = document.createElement("div"); card.className = "model-card"; card.dataset.key = m.model_key;
+        const familyClass = m.model_family === "qwen2_5_vl" ? "pill-blue" : "pill-amber";
+        card.innerHTML = `<div class="mc-name">${m.model_key}</div><div class="mc-family"><span class="pill ${familyClass}">${m.model_family}</span></div><div class="mc-stats">${m.num_layers}L · ${m.num_heads}H · ${m.num_gen_steps}T</div>`;
+        card.addEventListener("click", () => {
+          document.querySelectorAll(".model-card").forEach(c => c.classList.remove("selected"));
+          card.classList.add("selected");
+          selectedModelKey = m.model_key;
+          // Enable mode cards
+          document.querySelectorAll(".mode-card").forEach(c => c.classList.add("enabled"));
+          document.getElementById("cfg-hint").textContent = "Now choose analysis mode";
+        });
+        mc.appendChild(card);
+      });
 
-    c.addEventListener("mousedown",e=>onBwdDown(e,c));
-    c.addEventListener("mousemove",e=>onBwdMove(e,c));
-    c.addEventListener("mouseup",()=>{isDrag=false;});
-    c.addEventListener("mouseleave",()=>{isDrag=false;});
-  }
-  document.addEventListener("mouseup",()=>{isDrag=false;});
-}
+      // Reset mode cards
+      document.querySelectorAll(".mode-card").forEach(c => c.classList.remove("enabled"));
+      document.getElementById("cfg-hint").textContent = "Select a model first";
 
-function drawBwdFrame(fi){
-  const c=bwdCanvases[fi]; if(!c)return;
-  const ctx=c.getContext("2d"); const img=bwdImgs[fi];
-  const tg=Math.floor(fi/M.temporal_merge_factor);
-  ctx.clearRect(0,0,c.width,c.height);
-  if(img.complete&&img.naturalWidth>0)ctx.drawImage(img,0,0);
-
-  const hp=M.h_patches,wp=M.w_patches;
-  const cW=c.width/wp,cH=c.height/hp;
-
-  // Grid lines
-  ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.lineWidth=0.5;
-  for(let r=0;r<=hp;r++){ctx.beginPath();ctx.moveTo(0,r*cH);ctx.lineTo(c.width,r*cH);ctx.stroke();}
-  for(let cl=0;cl<=wp;cl++){ctx.beginPath();ctx.moveTo(cl*cW,0);ctx.lineTo(cl*cW,c.height);ctx.stroke();}
-
-  // Coordination: show forward heatmap as subtle overlay on backward frames
-  if(fwdCoordHeatmaps&&fwdSel.size>0){
-    const hm=fwdCoordHeatmaps[tg];
-    if(hm){
-      ctx.globalAlpha=0.18;
-      for(let r=0;r<hp;r++)for(let cl=0;cl<wp;cl++){
-        const v=hm[r][cl];
-        if(v>0.3){ // only show strong attention
-          const[cr,cg,cb]=cc(v,cmap);
-          ctx.fillStyle=`rgb(${cr},${cg},${cb})`;
-          ctx.fillRect(cl*cW,r*cH,cW,cH);
-        }
-      }
-      ctx.globalAlpha=1;
+      showView("config");
     }
-  }
 
-  // Selected patches
-  let count=0;
-  for(let r=0;r<hp;r++)for(let cl=0;cl<wp;cl++){
-    if(bwdPatches.has(`${tg}:${r}:${cl}`)){
-      ctx.fillStyle="rgba(245,158,11,0.4)"; ctx.fillRect(cl*cW,r*cH,cW,cH);
-      ctx.strokeStyle="rgba(245,158,11,0.85)"; ctx.lineWidth=1.5;
-      ctx.strokeRect(cl*cW+.5,r*cH+.5,cW-1,cH-1);
-      count++;
+    document.getElementById("config-back").addEventListener("click", () => showView("gallery"));
+    document.getElementById("btn-fwd").addEventListener("click", () => { if (!selectedModelKey) return; curModel = selectedModelKey; curMode = "forward"; loadDetail(); });
+    document.getElementById("btn-bwd").addEventListener("click", () => { if (!selectedModelKey) return; curModel = selectedModelKey; curMode = "backward"; loadDetail(); });
+    document.getElementById("detail-back").addEventListener("click", () => { resetDetail(); openConfig(curVideoData); });
+
+    // ═══ Detail ═══
+    function resetDetail() {
+      fwdSel.clear(); fwdLast = null; fwdHeatmaps = null; fwdImgs = []; fwdCanvases = [];
+      bwdPatches.clear(); bwdScores = null; bwdScoresNorm = null; bwdImgs = []; bwdCanvases = [];
+      document.getElementById("fwd-tokens").innerHTML = ""; document.getElementById("fwd-frames").innerHTML = "";
+      document.getElementById("bwd-tokens").innerHTML = ""; document.getElementById("bwd-frames").innerHTML = "";
+      document.getElementById("head-sel").innerHTML = '<option value="avg" selected>Avg</option>';
     }
-  }
-  const ft=document.getElementById(`bf-${fi}`);
-  if(ft)ft.textContent=`${count} selected`;
-}
 
-function bwdCell(e,c){
-  const r=c.getBoundingClientRect();
-  const x=(e.clientX-r.left)*(c.width/r.width);
-  const y=(e.clientY-r.top)*(c.height/r.height);
-  const col=Math.floor(x/(c.width/M.w_patches));
-  const row=Math.floor(y/(c.height/M.h_patches));
-  if(row<0||row>=M.h_patches||col<0||col>=M.w_patches)return null;
-  return{row,col,tg:+c.dataset.tg};
-}
-
-function onBwdDown(e,c){
-  e.preventDefault(); const cell=bwdCell(e,c); if(!cell)return;
-  isDrag=true; const k=`${cell.tg}:${cell.row}:${cell.col}`;
-  if(e.shiftKey){paintMode=false;bwdPatches.delete(k);}
-  else{if(bwdPatches.has(k)){bwdPatches.delete(k);paintMode=false;}else{bwdPatches.add(k);paintMode=true;}}
-  redrawBwd(); updateBwdStat(); fetchBackward();
-}
-
-function onBwdMove(e,c){
-  if(!isDrag)return; const cell=bwdCell(e,c); if(!cell)return;
-  const k=`${cell.tg}:${cell.row}:${cell.col}`;
-  if(paintMode){if(!bwdPatches.has(k)){bwdPatches.add(k);redrawBwd();updateBwdStat();}}
-  else{if(bwdPatches.has(k)){bwdPatches.delete(k);redrawBwd();updateBwdStat();}}
-}
-
-function redrawBwd(){for(let i=0;i<M.num_frames;i++)drawBwdFrame(i);}
-function updateBwdStat(){document.getElementById("bwd-stat").textContent=`${bwdPatches.size} patches`;}
-
-let bwdTimer=null;
-function fetchBackward(){clearTimeout(bwdTimer);bwdTimer=setTimeout(_fetchBwd,120);}
-
-async function _fetchBwd(){
-  if(bwdPatches.size===0){bwdScores=null;bwdScoresNorm=null;bwdCoordScores=null;renderBwdTokens();renderFwdCoord();return;}
-  const layer=+document.getElementById("layer-sl").value;
-  const head=document.getElementById("head-sel").value;
-  const patches=[];
-  for(const k of bwdPatches){const[tg,r,c]=k.split(":").map(Number);patches.push({tg,row:r,col:c});}
-  const id=Symbol(); pendingBwd=id;
-  try{
-    const res=await fetch("/api/attention_backward",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({patches,layer,head,agg:bwdAgg})});
-    if(pendingBwd!==id)return;
-    const d=await res.json();
-    bwdScores=d.scores; bwdScoresNorm=d.scores_norm;
-    bwdCoordScores=d.scores_norm; // coordination
-    renderBwdTokens();
-    renderFwdCoord(); // update forward token bar
-  }catch(e){console.error(e);}
-}
-
-function renderBwdTokens(){
-  for(let i=0;i<M.num_gen_steps;i++){
-    const el=document.getElementById(`bt-${i}`);
-    const tip=document.getElementById(`btp-${i}`);
-    if(!el)continue;
-    if(!bwdScoresNorm||bwdPatches.size===0){
-      el.style.background="var(--bg-raised)"; el.style.color="var(--text)";
-      el.style.borderColor="var(--border)";
-      if(tip)tip.textContent="-"; continue;
+    async function loadDetail() {
+      document.getElementById("loading").classList.remove("hidden");
+      const r = await fetch(`${apiBase()}/metadata`); M = await r.json();
+      document.getElementById("dt-model").textContent = M.model.split("/").pop();
+      document.getElementById("dt-family").textContent = M.model_family || "";
+      document.getElementById("dt-stats").textContent = `${M.num_layers}L · ${M.num_heads}H · ${M.num_frames}F · ${M.num_gen_steps}T`;
+      document.getElementById("dt-prompt").textContent = M.prompt;
+      const ls = document.getElementById("layer-sl"); ls.max = M.num_layers - 1; ls.value = M.num_layers - 1;
+      document.getElementById("layer-val").textContent = ls.value;
+      if (M.has_full_attention) { const hs = document.getElementById("head-sel"); for (let i = 0; i < M.num_heads; i++) { const o = document.createElement("option"); o.value = i; o.textContent = `H${i}`; hs.appendChild(o); } }
+      document.getElementById("fwd-panel").classList.toggle("hidden", curMode === "backward");
+      document.getElementById("bwd-panel").classList.toggle("hidden", curMode === "forward");
+      if (curMode === "forward") { buildFwdTokens(); await loadFwdFrames(); fwdSel.add(0); updateFwdTokenUI(); fetchForward(); }
+      if (curMode === "backward") { buildBwdTokens(); await loadBwdFrames(); }
+      showView("detail"); document.getElementById("loading").classList.add("hidden"); drawCmapBar();
     }
-    const n=bwdScoresNorm[i], raw=bwdScores[i];
-    const[r,g,b]=cc(n,cmap);
-    el.style.background=`rgb(${r},${g},${b})`;
-    el.style.borderColor=`rgba(${r},${g},${b},0.7)`;
-    const lum=.299*r+.587*g+.114*b;
-    el.style.color=lum>140?"#0a0b10":"#e8eaf0";
-    if(tip)tip.textContent=raw.toExponential(3);
-  }
-}
 
-// ═════════════════════════════════════════════════════════════════════
-// Coordination: backward → forward
-// ═════════════════════════════════════════════════════════════════════
-function renderFwdCoord(){
-  // Show backward scores as a colored bottom bar on forward tokens
-  document.querySelectorAll("#fwd-tokens .tok .coord-bar").forEach((bar,i)=>{
-    if(!bwdCoordScores||bwdPatches.size===0){
-      bar.style.background="transparent"; return;
-    }
-    const n=bwdCoordScores[i]||0;
-    if(n>0.1){
-      const[r,g,b]=cc(n,cmap);
-      bar.style.background=`rgb(${r},${g},${b})`;
-    } else {
-      bar.style.background="transparent";
-    }
-  });
-}
+    // ═══ Forward ═══
+    function buildFwdTokens() { const bar = document.getElementById("fwd-tokens"); bar.innerHTML = ""; M.generated_tokens.forEach((t, i) => { const d = document.createElement("div"); d.className = "tok"; d.dataset.i = i; const txt = t.replace(/ /g, "·").replace(/\n/g, "↵") || "·"; d.innerHTML = `<span class="ix">${i}</span>${esc(txt)}<div class="coord-bar"></div>`; d.addEventListener("click", e => onFwdClick(i, e)); bar.appendChild(d); }); }
+    function onFwdClick(i, e) { if (e.shiftKey && fwdLast !== null) { const lo = Math.min(fwdLast, i), hi = Math.max(fwdLast, i); for (let j = lo; j <= hi; j++)fwdSel.add(j); } else { if (fwdSel.has(i)) fwdSel.delete(i); else fwdSel.add(i); } fwdLast = i; updateFwdTokenUI(); fetchForward(); }
+    function updateFwdTokenUI() { document.querySelectorAll("#fwd-tokens .tok").forEach(d => d.classList.toggle("fwd-sel", fwdSel.has(+d.dataset.i))); document.getElementById("fwd-stat").textContent = `${fwdSel.size} selected`; }
+    async function loadFwdFrames() { const strip = document.getElementById("fwd-frames"); strip.innerHTML = ""; fwdImgs = []; fwdCanvases = []; for (let i = 0; i < M.num_frames; i++) { const tg = Math.floor(i / M.temporal_merge_factor); const card = document.createElement("div"); card.className = "fcard"; card.innerHTML = `<div class="fcard-head"><span class="ft">Frame ${i}</span><span class="tg">TG ${tg}</span></div><div class="fcard-canvas"><canvas id="fc-${i}"></canvas></div><div class="fcard-foot"><span>Attn</span><span class="sv" id="fs-${i}">-</span></div>`; strip.appendChild(card); const img = new Image(); img.crossOrigin = "anonymous"; img.src = `${apiBase()}/frames/${i}`; fwdImgs.push(img); await new Promise(r => { img.onload = r; img.onerror = r; }); const c = document.getElementById(`fc-${i}`); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext("2d").drawImage(img, 0, 0); fwdCanvases.push(c); } }
+    async function fetchForward() { if (fwdSel.size === 0) { fwdHeatmaps = null; renderFwdFrames(); return; } const layer = document.getElementById("layer-sl").value; const head = document.getElementById("head-sel").value; const steps = Array.from(fwdSel).sort((a, b) => a - b).join(","); const url = `${apiBase()}/attention_multi?steps=${steps}&layer=${layer}&head=${head}&agg=${fwdAgg}`; const id = Symbol(); pendingFwd = id; try { const r = await fetch(url); if (pendingFwd !== id) return; const d = await r.json(); fwdHeatmaps = d.heatmaps; renderFwdFrames(); } catch (e) { console.error(e); } }
+    function renderFwdFrames() { const opac = parseInt(document.getElementById("opac-sl").value) / 100; for (let i = 0; i < M.num_frames; i++) { const c = fwdCanvases[i]; if (!c) continue; const ctx = c.getContext("2d"); const img = fwdImgs[i]; ctx.clearRect(0, 0, c.width, c.height); if (img.complete && img.naturalWidth > 0) ctx.drawImage(img, 0, 0); const sEl = document.getElementById(`fs-${i}`); if (!fwdHeatmaps || fwdSel.size === 0) { if (sEl) sEl.textContent = "-"; continue; } const tg = Math.floor(i / M.temporal_merge_factor); const hm = fwdHeatmaps[tg]; if (!hm) continue; const hp = M.h_patches, wp = M.w_patches, cW = c.width / wp, cH = c.height / hp; ctx.globalAlpha = opac; let sum = 0; for (let r = 0; r < hp; r++)for (let cl = 0; cl < wp; cl++) { const v = hm[r][cl]; sum += v; const [cr, cg, cb] = cc(v, cmap); ctx.fillStyle = `rgb(${cr},${cg},${cb})`; ctx.fillRect(cl * cW, r * cH, cW + .5, cH + .5); } ctx.globalAlpha = 1; if (sEl) sEl.textContent = sum.toFixed(4); } }
 
-// Coordination: forward → backward
-function renderBwdCoord(){
-  // Forward heatmaps already shown as subtle overlay in drawBwdFrame
-  redrawBwd();
-}
+    // ═══ Backward ═══
+    function buildBwdTokens() { const bar = document.getElementById("bwd-tokens"); bar.innerHTML = ""; M.generated_tokens.forEach((t, i) => { const d = document.createElement("div"); d.className = "tok-heat"; d.id = `bt-${i}`; const txt = t.replace(/ /g, "·").replace(/\n/g, "↵") || "·"; d.innerHTML = `<span class="ix">${i}</span>${esc(txt)}<span class="tip" id="btp-${i}">-</span>`; bar.appendChild(d); }); }
+    async function loadBwdFrames() { const strip = document.getElementById("bwd-frames"); strip.innerHTML = ""; bwdImgs = []; bwdCanvases = []; for (let i = 0; i < M.num_frames; i++) { const tg = Math.floor(i / M.temporal_merge_factor); const card = document.createElement("div"); card.className = "fcard"; card.innerHTML = `<div class="fcard-head"><span class="ft">Frame ${i}</span><span class="tg">TG ${tg}</span></div><div class="fcard-canvas"><canvas id="bc-${i}" data-fi="${i}" data-tg="${tg}"></canvas></div><div class="fcard-foot" id="bf-${i}">0 selected</div>`; strip.appendChild(card); const img = new Image(); img.crossOrigin = "anonymous"; img.src = `${apiBase()}/frames/${i}`; bwdImgs.push(img); await new Promise(r => { img.onload = r; img.onerror = r; }); const c = document.getElementById(`bc-${i}`); c.width = img.naturalWidth; c.height = img.naturalHeight; bwdCanvases.push(c); drawBwdFrame(i); c.addEventListener("mousedown", e => onBwdDown(e, c)); c.addEventListener("mousemove", e => onBwdMove(e, c)); c.addEventListener("mouseup", () => { isDrag = false; }); c.addEventListener("mouseleave", () => { isDrag = false; }); } document.addEventListener("mouseup", () => { isDrag = false; }); }
+    function drawBwdFrame(fi) { const c = bwdCanvases[fi]; if (!c) return; const ctx = c.getContext("2d"); const img = bwdImgs[fi]; const tg = Math.floor(fi / M.temporal_merge_factor); ctx.clearRect(0, 0, c.width, c.height); if (img.complete && img.naturalWidth > 0) ctx.drawImage(img, 0, 0); const hp = M.h_patches, wp = M.w_patches, cW = c.width / wp, cH = c.height / hp; ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.lineWidth = 0.5; for (let r = 0; r <= hp; r++) { ctx.beginPath(); ctx.moveTo(0, r * cH); ctx.lineTo(c.width, r * cH); ctx.stroke(); } for (let cl = 0; cl <= wp; cl++) { ctx.beginPath(); ctx.moveTo(cl * cW, 0); ctx.lineTo(cl * cW, c.height); ctx.stroke(); } let count = 0; for (let r = 0; r < hp; r++)for (let cl = 0; cl < wp; cl++) { if (bwdPatches.has(`${tg}:${r}:${cl}`)) { ctx.fillStyle = "rgba(245,158,11,0.4)"; ctx.fillRect(cl * cW, r * cH, cW, cH); ctx.strokeStyle = "rgba(245,158,11,0.85)"; ctx.lineWidth = 1.5; ctx.strokeRect(cl * cW + .5, r * cH + .5, cW - 1, cH - 1); count++; } } const ft = document.getElementById(`bf-${fi}`); if (ft) ft.textContent = `${count} selected`; }
+    function bwdCell(e, c) { const r = c.getBoundingClientRect(); const x = (e.clientX - r.left) * (c.width / r.width); const y = (e.clientY - r.top) * (c.height / r.height); const col = Math.floor(x / (c.width / M.w_patches)); const row = Math.floor(y / (c.height / M.h_patches)); if (row < 0 || row >= M.h_patches || col < 0 || col >= M.w_patches) return null; return { row, col, tg: +c.dataset.tg }; }
+    function onBwdDown(e, c) { e.preventDefault(); const cell = bwdCell(e, c); if (!cell) return; isDrag = true; const k = `${cell.tg}:${cell.row}:${cell.col}`; if (e.shiftKey) { paintMode = false; bwdPatches.delete(k); } else { if (bwdPatches.has(k)) { bwdPatches.delete(k); paintMode = false; } else { bwdPatches.add(k); paintMode = true; } } redrawBwd(); updateBwdStat(); fetchBackward(); }
+    function onBwdMove(e, c) { if (!isDrag) return; const cell = bwdCell(e, c); if (!cell) return; const k = `${cell.tg}:${cell.row}:${cell.col}`; if (paintMode) { if (!bwdPatches.has(k)) { bwdPatches.add(k); redrawBwd(); updateBwdStat(); } } else { if (bwdPatches.has(k)) { bwdPatches.delete(k); redrawBwd(); updateBwdStat(); } } }
+    function redrawBwd() { for (let i = 0; i < M.num_frames; i++)drawBwdFrame(i); }
+    function updateBwdStat() { document.getElementById("bwd-stat").textContent = `${bwdPatches.size} patches`; }
+    let bwdTimer = null; function fetchBackward() { clearTimeout(bwdTimer); bwdTimer = setTimeout(_fetchBwd, 120); }
+    async function _fetchBwd() { if (bwdPatches.size === 0) { bwdScores = null; bwdScoresNorm = null; renderBwdTokens(); return; } const layer = +document.getElementById("layer-sl").value; const head = document.getElementById("head-sel").value; const patches = []; for (const k of bwdPatches) { const [tg, r, c] = k.split(":").map(Number); patches.push({ tg, row: r, col: c }); } const id = Symbol(); pendingBwd = id; try { const res = await fetch(`${apiBase()}/attention_backward`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patches, layer, head, agg: bwdAgg }) }); if (pendingBwd !== id) return; const d = await res.json(); bwdScores = d.scores; bwdScoresNorm = d.scores_norm; renderBwdTokens(); } catch (e) { console.error(e); } }
+    function renderBwdTokens() { for (let i = 0; i < M.num_gen_steps; i++) { const el = document.getElementById(`bt-${i}`); const tip = document.getElementById(`btp-${i}`); if (!el) continue; if (!bwdScoresNorm || bwdPatches.size === 0) { el.style.background = "var(--bg-raised)"; el.style.color = "var(--text)"; el.style.borderColor = "var(--border)"; if (tip) tip.textContent = "-"; continue; } const n = bwdScoresNorm[i], raw = bwdScores[i]; const [r, g, b] = cc(n, cmap); el.style.background = `rgb(${r},${g},${b})`; el.style.borderColor = `rgba(${r},${g},${b},0.7)`; const lum = .299 * r + .587 * g + .114 * b; el.style.color = lum > 140 ? "#0a0b10" : "#e8eaf0"; if (tip) tip.textContent = raw.toExponential(3); } }
 
-// ═════════════════════════════════════════════════════════════════════
-// Shared Controls
-// ═════════════════════════════════════════════════════════════════════
-document.getElementById("layer-sl").addEventListener("input",function(){
-  document.getElementById("layer-val").textContent=this.value;
-  fetchForward(); fetchBackward();
-});
-document.getElementById("head-sel").addEventListener("change",()=>{fetchForward();fetchBackward();});
-document.getElementById("opac-sl").addEventListener("input",function(){
-  document.getElementById("opac-val").textContent=this.value+"%"; renderFwdFrames();
-});
-document.getElementById("cmap-sel").addEventListener("change",function(){
-  cmap=this.value; drawCmapBar(); renderFwdFrames(); renderBwdTokens(); renderFwdCoord(); redrawBwd();
-});
+    // ═══ Controls ═══
+    document.getElementById("layer-sl").addEventListener("input", function () { document.getElementById("layer-val").textContent = this.value; if (curMode === "forward") fetchForward(); if (curMode === "backward") fetchBackward(); });
+    document.getElementById("head-sel").addEventListener("change", () => { if (curMode === "forward") fetchForward(); if (curMode === "backward") fetchBackward(); });
+    document.getElementById("opac-sl").addEventListener("input", function () { document.getElementById("opac-val").textContent = this.value + "%"; if (curMode === "forward") renderFwdFrames(); });
+    document.getElementById("cmap-sel").addEventListener("change", function () { cmap = this.value; drawCmapBar(); if (curMode === "forward") renderFwdFrames(); if (curMode === "backward") renderBwdTokens(); });
+    document.getElementById("fwd-all").addEventListener("click", () => { for (let i = 0; i < M.num_gen_steps; i++)fwdSel.add(i); updateFwdTokenUI(); fetchForward(); });
+    document.getElementById("fwd-clear").addEventListener("click", () => { fwdSel.clear(); updateFwdTokenUI(); fwdHeatmaps = null; renderFwdFrames(); });
+    document.querySelectorAll("[data-fwd-agg]").forEach(b => { b.addEventListener("click", function () { document.querySelectorAll("[data-fwd-agg]").forEach(x => x.classList.remove("active")); this.classList.add("active"); fwdAgg = this.dataset.fwdAgg; fetchForward(); }); });
+    document.getElementById("bwd-clear").addEventListener("click", () => { bwdPatches.clear(); redrawBwd(); updateBwdStat(); bwdScores = null; bwdScoresNorm = null; renderBwdTokens(); });
+    document.querySelectorAll("[data-bwd-agg]").forEach(b => { b.addEventListener("click", function () { document.querySelectorAll("[data-bwd-agg]").forEach(x => x.classList.remove("active")); this.classList.add("active"); bwdAgg = this.dataset.bwdAgg; fetchBackward(); }); });
+    function drawCmapBar() { const c = document.getElementById("cmap-bar"), ctx = c.getContext("2d"); for (let x = 0; x < c.width; x++) { const t = x / (c.width - 1); const [r, g, b] = cc(t, cmap); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(x, 0, 1, c.height); } }
 
-// Forward controls
-document.getElementById("fwd-all").addEventListener("click",()=>{for(let i=0;i<M.num_gen_steps;i++)fwdSel.add(i);updateFwdTokenUI();fetchForward();});
-document.getElementById("fwd-clear").addEventListener("click",()=>{fwdSel.clear();updateFwdTokenUI();fwdHeatmaps=null;fwdCoordHeatmaps=null;renderFwdFrames();renderBwdCoord();});
-document.querySelectorAll("[data-fwd-agg]").forEach(b=>{b.addEventListener("click",function(){document.querySelectorAll("[data-fwd-agg]").forEach(x=>x.classList.remove("active"));this.classList.add("active");fwdAgg=this.dataset.fwdAgg;fetchForward();});});
-
-// Backward controls
-document.getElementById("bwd-clear").addEventListener("click",()=>{bwdPatches.clear();redrawBwd();updateBwdStat();bwdScores=null;bwdScoresNorm=null;bwdCoordScores=null;renderBwdTokens();renderFwdCoord();});
-document.querySelectorAll("[data-bwd-agg]").forEach(b=>{b.addEventListener("click",function(){document.querySelectorAll("[data-bwd-agg]").forEach(x=>x.classList.remove("active"));this.classList.add("active");bwdAgg=this.dataset.bwdAgg;fetchBackward();});});
-
-function drawCmapBar(){
-  const c=document.getElementById("cmap-bar"),ctx=c.getContext("2d");
-  for(let x=0;x<c.width;x++){const t=x/(c.width-1);const[r,g,b]=cc(t,cmap);ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fillRect(x,0,1,c.height);}
-}
-
-// ═════════════════════════════════════════════════════════════════════
-init();
-</script>
+    // ═══ Boot ═══
+    loadGallery();
+  </script>
 </body>
+
 </html>

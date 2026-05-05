@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Attention Visualization Server
-Single unified interface with coordinated forward + backward views.
+Attention Visualization Server — Multi-example gallery
+Scans outputs/ for all captured runs, deduplicates videos across models,
+and serves a unified gallery + analysis interface.
 
 Usage:
-    python server.py --data attn_data --port 8888
+    python server.py --data outputs --port 8888
 """
 
 from flask import Flask, render_template, jsonify, send_file, request
@@ -15,18 +16,54 @@ import argparse
 
 app = Flask(__name__)
 
-DATA_DIR         = None
-metadata         = None
-attn_avg         = None
-attn_full        = None
-compression_mask = None
-cumsum_mask      = None
+ROOT_DIR = None
+_cache = {}
 
 
-def to_heatmaps(data_1d):
-    tg = metadata["num_temporal_groups"]
-    hp = metadata["h_patches"]
-    wp = metadata["w_patches"]
+def _load_example(model, video):
+    key = f"{model}/{video}"
+    if key in _cache:
+        return _cache[key]
+
+    data_dir = ROOT_DIR / model / video
+    meta_path = data_dir / "metadata.json"
+    if not meta_path.exists():
+        return None
+
+    with open(meta_path) as f:
+        metadata = json.load(f)
+
+    attn_avg = np.load(data_dir / "attention_avg.npy")
+
+    attn_full = None
+    full_path = data_dir / "attention_full.npy"
+    if full_path.exists():
+        attn_full = np.load(full_path)
+
+    compression_mask = None
+    cumsum_mask = None
+    mask_path = data_dir / "compression_mask.npy"
+    if mask_path.exists():
+        compression_mask = np.load(mask_path)
+        cumsum_mask = np.cumsum(compression_mask).astype(np.int64) - 1
+
+    entry = {
+        "data_dir": data_dir,
+        "metadata": metadata,
+        "attn_avg": attn_avg,
+        "attn_full": attn_full,
+        "compression_mask": compression_mask,
+        "cumsum_mask": cumsum_mask,
+    }
+    _cache[key] = entry
+    print(f"  Loaded: {key}  attn_avg={attn_avg.shape}")
+    return entry
+
+
+def _to_heatmaps(data_1d, meta, compression_mask):
+    tg = meta["num_temporal_groups"]
+    hp = meta["h_patches"]
+    wp = meta["w_patches"]
     full_len = tg * hp * wp
     if compression_mask is not None:
         full = np.zeros(full_len, dtype=np.float32)
@@ -36,21 +73,21 @@ def to_heatmaps(data_1d):
     return full.reshape(tg, hp, wp)
 
 
-def grid_to_compressed_idx(tg, row, col):
-    wp  = metadata["w_patches"]
-    spf = metadata["spatial_per_frame"]
-    flat_idx = tg * spf + row * wp + col
+def _grid_to_idx(tg, row, col, meta, compression_mask, cumsum_mask):
+    wp = meta["w_patches"]
+    spf = meta["spatial_per_frame"]
+    flat = tg * spf + row * wp + col
     if compression_mask is not None:
-        if flat_idx >= len(compression_mask) or not compression_mask[flat_idx]:
+        if flat >= len(compression_mask) or not compression_mask[flat]:
             return None
-        return int(cumsum_mask[flat_idx])
+        return int(cumsum_mask[flat])
     else:
-        if flat_idx >= metadata["num_video_tokens"]:
+        if flat >= meta["num_video_tokens"]:
             return None
-        return flat_idx
+        return flat
 
 
-def normalise(arr):
+def _normalise(arr):
     vmin = float(arr.min())
     vmax = float(arr.max())
     if vmax > vmin:
@@ -65,25 +102,83 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/api/metadata")
-def api_metadata():
-    return jsonify(metadata)
+@app.route("/api/examples")
+def api_examples():
+    """Return videos grouped by video_key, listing available models for each."""
+    videos = {}  # video_key -> { prompt, models: [...], thumb_model }
+    for model_dir in sorted(ROOT_DIR.iterdir()):
+        if not model_dir.is_dir():
+            continue
+        for video_dir in sorted(model_dir.iterdir()):
+            if not video_dir.is_dir():
+                continue
+            meta_path = video_dir / "metadata.json"
+            if not meta_path.exists():
+                continue
+            with open(meta_path) as f:
+                meta = json.load(f)
+
+            vk = video_dir.name
+            if vk not in videos:
+                videos[vk] = {
+                    "video_key": vk,
+                    "prompt": meta.get("prompt", ""),
+                    "num_frames": meta.get("num_frames", 0),
+                    "models": [],
+                    "thumb_model": model_dir.name,
+                }
+
+            has_thumb = (video_dir / "frames" / "frame_000.png").exists()
+            if has_thumb and not videos[vk].get("_has_thumb"):
+                videos[vk]["thumb_model"] = model_dir.name
+                videos[vk]["_has_thumb"] = True
+
+            videos[vk]["models"].append({
+                "model_key": model_dir.name,
+                "model": meta.get("model", ""),
+                "model_family": meta.get("model_family", ""),
+                "num_gen_steps": meta.get("num_gen_steps", 0),
+                "num_layers": meta.get("num_layers", 0),
+                "num_heads": meta.get("num_heads", 0),
+            })
+
+    result = []
+    for v in videos.values():
+        v.pop("_has_thumb", None)
+        result.append(v)
+    return jsonify(result)
 
 
-@app.route("/api/frames/<int:idx>")
-def api_frame(idx):
-    path = DATA_DIR / "frames" / f"frame_{idx:03d}.png"
+@app.route("/api/example/<model>/<video>/metadata")
+def api_metadata(model, video):
+    ex = _load_example(model, video)
+    if not ex:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(ex["metadata"])
+
+
+@app.route("/api/example/<model>/<video>/frames/<int:idx>")
+def api_frame(model, video, idx):
+    path = ROOT_DIR / model / video / "frames" / f"frame_{idx:03d}.png"
     if not path.exists():
         return jsonify({"error": f"Frame {idx} not found"}), 404
     return send_file(path, mimetype="image/png")
 
 
-@app.route("/api/attention_multi")
-def api_attention_multi():
+@app.route("/api/example/<model>/<video>/attention_multi")
+def api_attention_multi(model, video):
+    ex = _load_example(model, video)
+    if not ex:
+        return jsonify({"error": "Not found"}), 404
+
+    meta = ex["metadata"]
+    attn_avg = ex["attn_avg"]
+    attn_full = ex["attn_full"]
+
     steps_str = request.args.get("steps", "0")
-    layer = int(request.args.get("layer", metadata["num_layers"] - 1))
-    head  = request.args.get("head", "avg")
-    agg   = request.args.get("agg", "mean")
+    layer = int(request.args.get("layer", meta["num_layers"] - 1))
+    head = request.args.get("head", "avg")
+    agg = request.args.get("agg", "mean")
     layer = max(0, min(layer, attn_avg.shape[1] - 1))
 
     steps = []
@@ -104,8 +199,8 @@ def api_attention_multi():
 
     stacked = np.stack(collected)
     data = stacked.max(axis=0) if agg == "max" else stacked.mean(axis=0)
-    heatmaps = to_heatmaps(data)
-    norm, vmin, vmax = normalise(heatmaps)
+    heatmaps = _to_heatmaps(data, meta, ex["compression_mask"])
+    norm, vmin, vmax = _normalise(heatmaps)
 
     return jsonify({
         "steps": steps, "layer": layer,
@@ -115,20 +210,28 @@ def api_attention_multi():
     })
 
 
-@app.route("/api/attention_backward", methods=["POST"])
-def api_attention_backward():
+@app.route("/api/example/<model>/<video>/attention_backward", methods=["POST"])
+def api_attention_backward(model, video):
+    ex = _load_example(model, video)
+    if not ex:
+        return jsonify({"error": "Not found"}), 404
+
+    meta = ex["metadata"]
+    attn_avg = ex["attn_avg"]
+    attn_full = ex["attn_full"]
+
     body = request.get_json()
     patches = body.get("patches", [])
-    layer   = int(body.get("layer", metadata["num_layers"] - 1))
-    head    = body.get("head", "avg")
-    agg     = body.get("agg", "sum")
-    layer   = max(0, min(layer, attn_avg.shape[1] - 1))
+    layer = int(body.get("layer", meta["num_layers"] - 1))
+    head = body.get("head", "avg")
+    agg = body.get("agg", "sum")
+    layer = max(0, min(layer, attn_avg.shape[1] - 1))
 
     video_token_indices = []
     skipped = 0
     for p in patches:
         tg, row, col = int(p["tg"]), int(p["row"]), int(p["col"])
-        idx = grid_to_compressed_idx(tg, row, col)
+        idx = _grid_to_idx(tg, row, col, meta, ex["compression_mask"], ex["cumsum_mask"])
         if idx is not None:
             video_token_indices.append(idx)
         else:
@@ -150,7 +253,7 @@ def api_attention_backward():
 
     scores = selected.mean(axis=1) if agg == "mean" else selected.sum(axis=1)
     scores = scores.astype(float)
-    norm, vmin, vmax = normalise(scores)
+    norm, vmin, vmax = _normalise(scores)
 
     return jsonify({
         "scores": scores.tolist(), "scores_norm": norm.tolist(),
@@ -160,39 +263,23 @@ def api_attention_backward():
 
 
 def main():
-    global DATA_DIR, metadata, attn_avg, attn_full, compression_mask, cumsum_mask
-
+    global ROOT_DIR
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", default="attn_data")
+    parser.add_argument("--data", default="outputs")
     parser.add_argument("--port", type=int, default=8888)
     parser.add_argument("--host", default="0.0.0.0")
     args = parser.parse_args()
 
-    DATA_DIR = Path(args.data)
-    if not DATA_DIR.exists():
-        print(f"Error: {DATA_DIR} does not exist."); return
+    ROOT_DIR = Path(args.data)
+    if not ROOT_DIR.exists():
+        print(f"Error: {ROOT_DIR} does not exist."); return
 
-    print("Loading data ...")
-    with open(DATA_DIR / "metadata.json") as f:
-        metadata = json.load(f)
-
-    attn_avg = np.load(DATA_DIR / "attention_avg.npy")
-    print(f"  attention_avg: {attn_avg.shape}")
-
-    full_path = DATA_DIR / "attention_full.npy"
-    if full_path.exists():
-        attn_full = np.load(full_path)
-        print(f"  attention_full: {attn_full.shape}")
-
-    mask_path = DATA_DIR / "compression_mask.npy"
-    if mask_path.exists():
-        compression_mask = np.load(mask_path)
-        cumsum_mask = np.cumsum(compression_mask).astype(np.int64) - 1
-        print(f"  compression_mask: {int(compression_mask.sum())}/{compression_mask.shape[0]} kept")
-
-    print(f"\n  Model:     {metadata['model']}")
-    print(f"  Generated: {metadata['generated_text'][:80]}...")
-    print(f"  Frames: {metadata['num_frames']}  Grid: {metadata['h_patches']}x{metadata['w_patches']}  Steps: {metadata['num_gen_steps']}")
+    count = 0
+    for m in ROOT_DIR.iterdir():
+        if not m.is_dir(): continue
+        for v in m.iterdir():
+            if (v / "metadata.json").exists(): count += 1
+    print(f"Found {count} examples in {ROOT_DIR}/")
     print(f"\n  http://{args.host}:{args.port}")
     app.run(host=args.host, port=args.port, debug=False)
 
