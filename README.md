@@ -176,6 +176,27 @@ Both forward and backward modes share a common control bar:
 - Select All / Clear buttons, Mean / Max aggregation
 - Frame strip shows heatmap overlay with per-frame attention score
 
+**Parallel Coordinates (appears automatically below the frame strip when tokens are selected):**
+
+The parallel coordinates view shows how the model's peak attention location moves spatially across frames for each selected token.
+
+- Each column is a thumbnail of the corresponding video frame (labeled `F0`, `F1`, …)
+- A **dot** on each thumbnail marks the single patch with the highest attention score for that token at that frame
+- **Bezier curves** connect the dots left-to-right, tracing the spatial trajectory across time
+- **Line thickness** encodes the magnitude of attention change between consecutive frames — thick lines mean a large shift, thin lines mean the focus was stable
+- **Line colour** encodes the direction of change: **white** = attention decreased, **dark blue** = attention increased strongly
+- **Dot colour** is unique per token, so multiple tokens can be compared simultaneously
+
+Two display modes are available via the toggle in the panel header:
+
+| Mode | When to use |
+|---|---|
+| **Per token** | Compare trajectories of individual selected tokens side by side; each token gets its own colour |
+| **Aggregate** | See the ensemble trajectory of all selected tokens combined (uses the same aggregated heatmap as the frame strip above) |
+
+The view updates live whenever you change the token selection, layer slider, or head selector. It hides automatically when no tokens are selected.
+
+
 **Backward mode:**
 - Click patches on frames to toggle, drag to paint-select a region
 - Shift+click to erase patches
