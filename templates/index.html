@@ -677,6 +677,52 @@
       cursor: crosshair;
     }
 
+    /* ── Parallel Coordinates Panel ─── */
+    #pc-panel {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px 20px;
+    }
+
+    #pc-panel .view-tag-pc {
+      background: rgba(34, 197, 94, .12);
+      color: var(--green);
+    }
+
+    #pc-canvas-wrap {
+      position: relative;
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    #pc-canvas {
+      display: block;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    .pc-token-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .pc-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .pc-legend-swatch {
+      width: 18px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
     .loading {
       position: fixed;
       inset: 0;
@@ -819,6 +865,21 @@
       <div class="token-bar" id="fwd-tokens"></div>
       <div class="frame-strip" id="fwd-frames"></div>
     </div>
+    <!-- Parallel Coordinates panel -->
+    <div class="view-panel hidden" id="pc-panel">
+      <div class="view-header">
+        <span class="view-tag view-tag-pc">PARALLEL COORDS</span>
+        <span class="view-desc">Peak-attention location per frame — line thickness = |Δ attention|, colour = change direction</span>
+        <div class="view-actions" style="margin-left:auto">
+          <div class="btn-group-sm">
+            <button id="pc-tok-toggle" class="active">Per token</button>
+            <button id="pc-agg-toggle">Aggregate</button>
+          </div>
+        </div>
+      </div>
+      <div id="pc-canvas-wrap"><canvas id="pc-canvas"></canvas></div>
+      <div class="pc-token-legend" id="pc-legend"></div>
+    </div>
     <!-- Backward panel -->
     <div class="view-panel" id="bwd-panel">
       <div class="view-header">
@@ -940,7 +1001,7 @@
     function onFwdClick(i, e) { if (e.shiftKey && fwdLast !== null) { const lo = Math.min(fwdLast, i), hi = Math.max(fwdLast, i); for (let j = lo; j <= hi; j++)fwdSel.add(j); } else { if (fwdSel.has(i)) fwdSel.delete(i); else fwdSel.add(i); } fwdLast = i; updateFwdTokenUI(); fetchForward(); }
     function updateFwdTokenUI() { document.querySelectorAll("#fwd-tokens .tok").forEach(d => d.classList.toggle("fwd-sel", fwdSel.has(+d.dataset.i))); document.getElementById("fwd-stat").textContent = `${fwdSel.size} selected`; }
     async function loadFwdFrames() { const strip = document.getElementById("fwd-frames"); strip.innerHTML = ""; fwdImgs = []; fwdCanvases = []; for (let i = 0; i < M.num_frames; i++) { const tg = Math.floor(i / M.temporal_merge_factor); const card = document.createElement("div"); card.className = "fcard"; card.innerHTML = `<div class="fcard-head"><span class="ft">Frame ${i}</span><span class="tg">TG ${tg}</span></div><div class="fcard-canvas"><canvas id="fc-${i}"></canvas></div><div class="fcard-foot"><span>Attn</span><span class="sv" id="fs-${i}">-</span></div>`; strip.appendChild(card); const img = new Image(); img.crossOrigin = "anonymous"; img.src = `${apiBase()}/frames/${i}`; fwdImgs.push(img); await new Promise(r => { img.onload = r; img.onerror = r; }); const c = document.getElementById(`fc-${i}`); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext("2d").drawImage(img, 0, 0); fwdCanvases.push(c); } }
-    async function fetchForward() { if (fwdSel.size === 0) { fwdHeatmaps = null; renderFwdFrames(); return; } const layer = document.getElementById("layer-sl").value; const head = document.getElementById("head-sel").value; const steps = Array.from(fwdSel).sort((a, b) => a - b).join(","); const url = `${apiBase()}/attention_multi?steps=${steps}&layer=${layer}&head=${head}&agg=${fwdAgg}`; const id = Symbol(); pendingFwd = id; try { const r = await fetch(url); if (pendingFwd !== id) return; const d = await r.json(); fwdHeatmaps = d.heatmaps; renderFwdFrames(); } catch (e) { console.error(e); } }
+    async function fetchForward() { if (fwdSel.size === 0) { fwdHeatmaps = null; renderFwdFrames(); document.getElementById("pc-panel").classList.add("hidden"); return; } const layer = document.getElementById("layer-sl").value; const head = document.getElementById("head-sel").value; const steps = Array.from(fwdSel).sort((a, b) => a - b).join(","); const url = `${apiBase()}/attention_multi?steps=${steps}&layer=${layer}&head=${head}&agg=${fwdAgg}`; const id = Symbol(); pendingFwd = id; try { const r = await fetch(url); if (pendingFwd !== id) return; const d = await r.json(); fwdHeatmaps = d.heatmaps; renderFwdFrames(); fetchAndRenderPC(); } catch (e) { console.error(e); } }
     function renderFwdFrames() { const opac = parseInt(document.getElementById("opac-sl").value) / 100; for (let i = 0; i < M.num_frames; i++) { const c = fwdCanvases[i]; if (!c) continue; const ctx = c.getContext("2d"); const img = fwdImgs[i]; ctx.clearRect(0, 0, c.width, c.height); if (img.complete && img.naturalWidth > 0) ctx.drawImage(img, 0, 0); const sEl = document.getElementById(`fs-${i}`); if (!fwdHeatmaps || fwdSel.size === 0) { if (sEl) sEl.textContent = "-"; continue; } const tg = Math.floor(i / M.temporal_merge_factor); const hm = fwdHeatmaps[tg]; if (!hm) continue; const hp = M.h_patches, wp = M.w_patches, cW = c.width / wp, cH = c.height / hp; ctx.globalAlpha = opac; let sum = 0; for (let r = 0; r < hp; r++)for (let cl = 0; cl < wp; cl++) { const v = hm[r][cl]; sum += v; const [cr, cg, cb] = cc(v, cmap); ctx.fillStyle = `rgb(${cr},${cg},${cb})`; ctx.fillRect(cl * cW, r * cH, cW + .5, cH + .5); } ctx.globalAlpha = 1; if (sEl) sEl.textContent = sum.toFixed(4); } }
 
     // ═══ Backward ═══
@@ -956,13 +1017,257 @@
     async function _fetchBwd() { if (bwdPatches.size === 0) { bwdScores = null; bwdScoresNorm = null; renderBwdTokens(); return; } const layer = +document.getElementById("layer-sl").value; const head = document.getElementById("head-sel").value; const patches = []; for (const k of bwdPatches) { const [tg, r, c] = k.split(":").map(Number); patches.push({ tg, row: r, col: c }); } const id = Symbol(); pendingBwd = id; try { const res = await fetch(`${apiBase()}/attention_backward`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patches, layer, head, agg: bwdAgg }) }); if (pendingBwd !== id) return; const d = await res.json(); bwdScores = d.scores; bwdScoresNorm = d.scores_norm; renderBwdTokens(); } catch (e) { console.error(e); } }
     function renderBwdTokens() { for (let i = 0; i < M.num_gen_steps; i++) { const el = document.getElementById(`bt-${i}`); const tip = document.getElementById(`btp-${i}`); if (!el) continue; if (!bwdScoresNorm || bwdPatches.size === 0) { el.style.background = "var(--bg-raised)"; el.style.color = "var(--text)"; el.style.borderColor = "var(--border)"; if (tip) tip.textContent = "-"; continue; } const n = bwdScoresNorm[i], raw = bwdScores[i]; const [r, g, b] = cc(n, cmap); el.style.background = `rgb(${r},${g},${b})`; el.style.borderColor = `rgba(${r},${g},${b},0.7)`; const lum = .299 * r + .587 * g + .114 * b; el.style.color = lum > 140 ? "#0a0b10" : "#e8eaf0"; if (tip) tip.textContent = raw.toExponential(3); } }
 
+    // ═══ Parallel Coordinates ═══
+    const PC_THUMB_W = 120, PC_THUMB_H = 68, PC_MARGIN = 48, PC_PAD_TOP = 28, PC_PAD_BOT = 18;
+    let pcMode = "per-token"; // "per-token" | "aggregate"
+
+    // Distinct hues for up to ~12 tokens; beyond that wraps
+    function pcTokenColor(idx) {
+      const hues = [210, 40, 140, 0, 280, 170, 60, 320, 100, 200, 350, 80];
+      const h = hues[idx % hues.length];
+      return `hsl(${h},85%,62%)`;
+    }
+
+    // Change-delta colour: white = reduction/no-change, deep blue = strong increase
+    function pcDeltaColor(delta, maxDelta) {
+      // delta in [-1, 1] range (signed); normalise to [0,1] where 0=decrease, 0.5=no change, 1=strong increase
+      if (maxDelta === 0) return { r: 180, g: 180, b: 180 };
+      const t = Math.max(0, Math.min(1, (delta / maxDelta + 1) / 2));
+      // white (255,255,255) → dark indigo (30, 60, 180)
+      const r = Math.round(255 + t * (30 - 255));
+      const g = Math.round(255 + t * (60 - 255));
+      const b = Math.round(255 + t * (180 - 255));
+      return { r, g, b };
+    }
+
+    function pcDeltaThickness(absDelta, maxAbsDelta) {
+      if (maxAbsDelta === 0) return 1;
+      return 1 + (absDelta / maxAbsDelta) * 5; // 1px to 6px
+    }
+
+    // Returns {row, col, attnVal} of the peak-attention patch for a given heatmap (tg slice)
+    function peakPatch(hm) {
+      let best = -1, br = 0, bc = 0;
+      for (let r = 0; r < hm.length; r++) {
+        for (let c = 0; c < hm[r].length; c++) {
+          if (hm[r][c] > best) { best = hm[r][c]; br = r; bc = c; }
+        }
+      }
+      return { row: br, col: bc, val: best };
+    }
+
+    // (cx, cy) of the dot for a given patch on a thumbnail placed at (thumbX, thumbY)
+    function patchDotPos(row, col, thumbX, thumbY) {
+      const pw = PC_THUMB_W / M.w_patches, ph = PC_THUMB_H / M.h_patches;
+      return {
+        x: thumbX + (col + 0.5) * pw,
+        y: thumbY + (row + 0.5) * ph,
+      };
+    }
+
+    function renderPC() {
+      const panel = document.getElementById("pc-panel");
+      if (!fwdHeatmaps || fwdSel.size === 0) { panel.classList.add("hidden"); return; }
+      panel.classList.remove("hidden");
+
+      const nFrames = M.num_frames;
+      const canvasW = Math.max(600, nFrames * (PC_THUMB_W + PC_MARGIN) + PC_MARGIN);
+      const canvasH = PC_THUMB_H + PC_PAD_TOP + PC_PAD_BOT;
+
+      const cvs = document.getElementById("pc-canvas");
+      cvs.width = canvasW; cvs.height = canvasH;
+      const ctx = cvs.getContext("2d");
+      ctx.clearRect(0, 0, canvasW, canvasH);
+      ctx.fillStyle = "#161921";
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      // Thumb x positions (left edge of each thumbnail)
+      const thumbXs = Array.from({ length: nFrames }, (_, i) =>
+        PC_MARGIN / 2 + i * (PC_THUMB_W + PC_MARGIN)
+      );
+      const thumbY = PC_PAD_TOP;
+
+      // Draw thumbnail frames + frame labels
+      for (let fi = 0; fi < nFrames; fi++) {
+        const img = fwdImgs[fi];
+        const tx = thumbXs[fi];
+        if (img && img.complete && img.naturalWidth > 0) {
+          ctx.drawImage(img, tx, thumbY, PC_THUMB_W, PC_THUMB_H);
+          // dim overlay so dots are visible
+          ctx.fillStyle = "rgba(0,0,0,0.35)";
+          ctx.fillRect(tx, thumbY, PC_THUMB_W, PC_THUMB_H);
+        } else {
+          ctx.fillStyle = "#0a0b10";
+          ctx.fillRect(tx, thumbY, PC_THUMB_W, PC_THUMB_H);
+        }
+        // border
+        ctx.strokeStyle = "#252936";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx + 0.5, thumbY + 0.5, PC_THUMB_W - 1, PC_THUMB_H - 1);
+        // frame label
+        ctx.fillStyle = "#5c6272";
+        ctx.font = "9px 'JetBrains Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`F${fi}`, tx + PC_THUMB_W / 2, thumbY - 6);
+      }
+
+      // For each selected token, compute peak patch per frame, then draw lines + dots
+      const selTokens = Array.from(fwdSel).sort((a, b) => a - b);
+
+      // Collect all per-token trajectories first (need to find global maxAbsDelta for thickness)
+      const trajectories = []; // [{tokenIdx, frames:[{fi,row,col,val,attnVal}]}]
+
+      if (pcMode === "per-token") {
+        // We need per-token heatmaps — fwdHeatmaps is the aggregated result.
+        // We'll use the already-fetched aggregated heatmaps but per-selected-token if only 1,
+        // otherwise we use the aggregate as a single trajectory.
+        // For true per-token we need separate fetches; use aggregate split by token index
+        // stored in pcPerTokenHeatmaps (populated in renderPC if available).
+        const hmSource = pcPerTokenHeatmaps || { _agg: fwdHeatmaps };
+        selTokens.forEach((ti, idx) => {
+          const hms = hmSource[ti] || fwdHeatmaps;
+          const frames = [];
+          for (let fi = 0; fi < nFrames; fi++) {
+            const tg = Math.floor(fi / M.temporal_merge_factor);
+            const hm = hms[tg]; if (!hm) continue;
+            const { row, col, val } = peakPatch(hm);
+            frames.push({ fi, row, col, val });
+          }
+          trajectories.push({ tokenIdx: ti, colorIdx: idx, frames });
+        });
+      } else {
+        // aggregate: single trajectory from fwdHeatmaps
+        const frames = [];
+        for (let fi = 0; fi < nFrames; fi++) {
+          const tg = Math.floor(fi / M.temporal_merge_factor);
+          const hm = fwdHeatmaps[tg]; if (!hm) continue;
+          const { row, col, val } = peakPatch(hm);
+          frames.push({ fi, row, col, val });
+        }
+        trajectories.push({ tokenIdx: -1, colorIdx: 0, frames });
+      }
+
+      // Global max |delta| across all trajectories for thickness normalisation
+      let globalMaxAbsDelta = 0;
+      trajectories.forEach(({ frames }) => {
+        for (let i = 1; i < frames.length; i++) {
+          globalMaxAbsDelta = Math.max(globalMaxAbsDelta, Math.abs(frames[i].val - frames[i - 1].val));
+        }
+      });
+
+      // Draw lines first (under dots)
+      trajectories.forEach(({ frames, colorIdx, tokenIdx }) => {
+        for (let i = 1; i < frames.length; i++) {
+          const a = frames[i - 1], b = frames[i];
+          const pa = patchDotPos(a.row, a.col, thumbXs[a.fi], thumbY);
+          const pb = patchDotPos(b.row, b.col, thumbXs[b.fi], thumbY);
+          const delta = b.val - a.val;
+          const dc = pcDeltaColor(delta, globalMaxAbsDelta);
+          const thickness = pcDeltaThickness(Math.abs(delta), globalMaxAbsDelta);
+          const alpha = pcMode === "per-token" ? 0.75 : 0.9;
+
+          ctx.beginPath();
+          const mx = (pa.x + pb.x) / 2;
+          ctx.moveTo(pa.x, pa.y);
+          ctx.bezierCurveTo(mx, pa.y, mx, pb.y, pb.x, pb.y);
+          ctx.strokeStyle = `rgba(${dc.r},${dc.g},${dc.b},${alpha})`;
+          ctx.lineWidth = thickness;
+          ctx.lineCap = "round";
+          ctx.stroke();
+        }
+      });
+
+      // Draw dots on top
+      trajectories.forEach(({ frames, colorIdx, tokenIdx }) => {
+        const tokenColor = pcTokenColor(colorIdx);
+        frames.forEach(({ fi, row, col, val }) => {
+          const { x, y } = patchDotPos(row, col, thumbXs[fi], thumbY);
+          // outer ring
+          ctx.beginPath();
+          ctx.arc(x, y, 5, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(0,0,0,0.6)";
+          ctx.fill();
+          // inner dot coloured by token
+          ctx.beginPath();
+          ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = tokenColor;
+          ctx.fill();
+        });
+      });
+
+      // Legend
+      const legend = document.getElementById("pc-legend"); legend.innerHTML = "";
+      if (pcMode === "per-token") {
+        selTokens.forEach((ti, idx) => {
+          const tok = M.generated_tokens[ti];
+          const item = document.createElement("div"); item.className = "pc-legend-item";
+          const swatch = document.createElement("div"); swatch.className = "pc-legend-swatch";
+          swatch.style.background = pcTokenColor(idx); swatch.style.height = "3px";
+          const label = document.createElement("span");
+          label.textContent = `${ti}: ${(tok || "·").replace(/ /g, "·").replace(/\n/, "↵")}`;
+          item.appendChild(swatch); item.appendChild(label); legend.appendChild(item);
+        });
+      } else {
+        const item = document.createElement("div"); item.className = "pc-legend-item";
+        const swatch = document.createElement("div"); swatch.className = "pc-legend-swatch";
+        swatch.style.background = pcTokenColor(0); swatch.style.height = "3px";
+        const label = document.createElement("span"); label.textContent = "Aggregate (all selected tokens)";
+        item.appendChild(swatch); item.appendChild(label); legend.appendChild(item);
+      }
+
+      // Colour scale legend
+      const scaleItem = document.createElement("div"); scaleItem.className = "pc-legend-item";
+      scaleItem.style.marginLeft = "auto";
+      const scaleCanvas = document.createElement("canvas"); scaleCanvas.width = 80; scaleCanvas.height = 6;
+      const sctx = scaleCanvas.getContext("2d");
+      for (let x = 0; x < 80; x++) {
+        const t = x / 79; const delta = (t * 2 - 1); const { r, g, b } = pcDeltaColor(delta, 1);
+        sctx.fillStyle = `rgb(${r},${g},${b})`; sctx.fillRect(x, 0, 1, 6);
+      }
+      scaleCanvas.style.borderRadius = "2px"; scaleCanvas.style.border = "1px solid #252936";
+      const scaleLabel = document.createElement("span"); scaleLabel.textContent = "decrease → increase";
+      scaleItem.appendChild(scaleCanvas); scaleItem.appendChild(scaleLabel);
+      legend.appendChild(scaleItem);
+    }
+
+    // Holds per-token heatmaps keyed by token index
+    let pcPerTokenHeatmaps = null;
+
+    async function fetchAndRenderPC() {
+      if (!M || fwdSel.size === 0) { document.getElementById("pc-panel").classList.add("hidden"); return; }
+      const layer = document.getElementById("layer-sl").value;
+      const head = document.getElementById("head-sel").value;
+      if (pcMode === "per-token" && fwdSel.size > 1) {
+        pcPerTokenHeatmaps = {};
+        await Promise.all(Array.from(fwdSel).map(async ti => {
+          const url = `${apiBase()}/attention_multi?steps=${ti}&layer=${layer}&head=${head}&agg=mean`;
+          const r = await fetch(url); const d = await r.json();
+          pcPerTokenHeatmaps[ti] = d.heatmaps;
+        }));
+      } else {
+        pcPerTokenHeatmaps = null;
+      }
+      renderPC();
+    }
+
+    document.getElementById("pc-tok-toggle").addEventListener("click", function () {
+      pcMode = "per-token";
+      this.classList.add("active"); document.getElementById("pc-agg-toggle").classList.remove("active");
+      fetchAndRenderPC();
+    });
+    document.getElementById("pc-agg-toggle").addEventListener("click", function () {
+      pcMode = "aggregate";
+      this.classList.add("active"); document.getElementById("pc-tok-toggle").classList.remove("active");
+      fetchAndRenderPC();
+    });
+
     // ═══ Controls ═══
     document.getElementById("layer-sl").addEventListener("input", function () { document.getElementById("layer-val").textContent = this.value; if (curMode === "forward") fetchForward(); if (curMode === "backward") fetchBackward(); });
     document.getElementById("head-sel").addEventListener("change", () => { if (curMode === "forward") fetchForward(); if (curMode === "backward") fetchBackward(); });
     document.getElementById("opac-sl").addEventListener("input", function () { document.getElementById("opac-val").textContent = this.value + "%"; if (curMode === "forward") renderFwdFrames(); });
     document.getElementById("cmap-sel").addEventListener("change", function () { cmap = this.value; drawCmapBar(); if (curMode === "forward") renderFwdFrames(); if (curMode === "backward") renderBwdTokens(); });
     document.getElementById("fwd-all").addEventListener("click", () => { for (let i = 0; i < M.num_gen_steps; i++)fwdSel.add(i); updateFwdTokenUI(); fetchForward(); });
-    document.getElementById("fwd-clear").addEventListener("click", () => { fwdSel.clear(); updateFwdTokenUI(); fwdHeatmaps = null; renderFwdFrames(); });
+    document.getElementById("fwd-clear").addEventListener("click", () => { fwdSel.clear(); updateFwdTokenUI(); fwdHeatmaps = null; pcPerTokenHeatmaps = null; renderFwdFrames(); document.getElementById("pc-panel").classList.add("hidden"); });
     document.querySelectorAll("[data-fwd-agg]").forEach(b => { b.addEventListener("click", function () { document.querySelectorAll("[data-fwd-agg]").forEach(x => x.classList.remove("active")); this.classList.add("active"); fwdAgg = this.dataset.fwdAgg; fetchForward(); }); });
     document.getElementById("bwd-clear").addEventListener("click", () => { bwdPatches.clear(); redrawBwd(); updateBwdStat(); bwdScores = null; bwdScoresNorm = null; renderBwdTokens(); });
     document.querySelectorAll("[data-bwd-agg]").forEach(b => { b.addEventListener("click", function () { document.querySelectorAll("[data-bwd-agg]").forEach(x => x.classList.remove("active")); this.classList.add("active"); bwdAgg = this.dataset.bwdAgg; fetchBackward(); }); });
