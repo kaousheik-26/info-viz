@@ -166,8 +166,8 @@ Both forward and backward modes share a common control bar:
 
 | Control | Description |
 |---|---|
-| **Layer** | Slider to select which transformer layer to visualize |
-| **Head** | Average across all heads, or pick a specific head (requires `--save-full` during capture) |
+| **Layer** | Slider to select which transformer layer to visualize. A sparkline above the slider (forward mode only) shows attention sharpness per layer — taller bars indicate layers where attention is more concentrated on specific patches. |
+| **Head** | Average across all heads, or pick a specific head (requires `--save-full` during capture). Hidden when only head-averaged data is available. |
 | **Opacity** | Heatmap overlay transparency (forward mode) |
 | **Cmap** | Color map: Inferno, Hot, Viridis, Plasma, Magma, Turbo |
 
@@ -175,6 +175,7 @@ Both forward and backward modes share a common control bar:
 - Click tokens to toggle selection, shift+click for range
 - Select All / Clear buttons, Mean / Max aggregation
 - Frame strip shows heatmap overlay with per-frame attention score
+- **Compare Layers** — enter a frame index and a comma-separated list of layer indices (e.g. `0, 8, 16, 27`) to render that frame side-by-side under each specified layer's heatmap, using the current token selection
 
 **Parallel Coordinates (appears automatically below the frame strip when tokens are selected):**
 
@@ -184,7 +185,7 @@ The parallel coordinates view shows how the model's peak attention location move
 - A **dot** on each thumbnail marks the single patch with the highest attention score for that token at that frame
 - **Bezier curves** connect the dots left-to-right, tracing the spatial trajectory across time
 - **Line thickness** encodes the magnitude of attention change between consecutive frames — thick lines mean a large shift, thin lines mean the focus was stable
-- **Line colour** encodes the direction of change: **white** = attention decreased, **dark blue** = attention increased strongly
+- **Line colour** uses a diverging scale: **blue** = attention decreased, **white** = no change, **red** = attention increased
 - **Dot colour** is unique per token, so multiple tokens can be compared simultaneously
 
 Two display modes are available via the toggle in the panel header:
@@ -194,14 +195,14 @@ Two display modes are available via the toggle in the panel header:
 | **Per token** | Compare trajectories of individual selected tokens side by side; each token gets its own colour |
 | **Aggregate** | See the ensemble trajectory of all selected tokens combined (uses the same aggregated heatmap as the frame strip above) |
 
-The view updates live whenever you change the token selection, layer slider, or head selector. It hides automatically when no tokens are selected.
-
+The view updates live whenever you change the token selection, layer slider, or head selector. It hides automatically when no tokens are selected or when switching to backward mode.
 
 **Backward mode:**
 - Click patches on frames to toggle, drag to paint-select a region
 - Shift+click to erase patches
 - Token bar shows heatmap — background color = attention score, hover for raw value
 - Sum / Mean aggregation across selected patches
+- **Compare Layers** — enter a comma-separated list of layer indices to render stacked token-bar rows, one per layer, using the current patch selection
 
 Use the **← Back** button to return to mode selection or gallery.
 
