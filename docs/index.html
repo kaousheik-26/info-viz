@@ -356,18 +356,25 @@
         }
 
         .prompt-bar {
-            padding: 8px 28px;
-            font-size: 11px;
-            color: var(--text-dim);
+            padding: 10px 28px;
+            font-size: 13px;
+            color: var(--text-bright);
             border-bottom: 1px solid var(--border);
-            background: var(--bg);
-            font-family: var(--mono);
+            background: var(--bg-panel);
+            font-family: var(--sans);
             display: flex;
             gap: 8px;
+            align-items: baseline;
         }
 
         .prompt-bar strong {
-            color: var(--text);
+            font-size: 10px;
+            font-family: var(--mono);
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            flex-shrink: 0;
         }
 
         .controls {
@@ -415,6 +422,177 @@
             font-size: 12px;
             color: var(--accent);
             min-width: 40px;
+        }
+
+        .layer-slider-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            width: 150px;
+        }
+
+        .layer-slider-stack input[type="range"] {
+            width: 150px;
+            margin: 0;
+            padding: 0;
+            display: block;
+            box-sizing: border-box;
+        }
+
+        .layer-endpoints {
+            display: flex;
+            justify-content: space-between;
+            width: 150px;
+            font-size: 9px;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            padding: 0 2px;
+        }
+
+        .sparkline-label {
+            font-size: 9px;
+            font-family: var(--mono);
+            color: var(--text-dim);
+            letter-spacing: .3px;
+            line-height: 1;
+        }
+
+        #layer-sparkline {
+            display: block;
+            border-radius: 3px;
+        }
+
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            border: 1px solid var(--text-dim);
+            font-size: 9px;
+            color: var(--text-dim);
+            cursor: help;
+            position: relative;
+            line-height: 1;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+
+        .info-tip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-30%);
+            width: 240px;
+            padding: 8px 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-hi);
+            border-radius: var(--radius);
+            font-size: 11px;
+            color: var(--text);
+            line-height: 1.5;
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            font-family: var(--sans);
+            z-index: 50;
+            white-space: normal;
+            pointer-events: none;
+        }
+
+        .info-icon:hover .info-tip {
+            display: block;
+        }
+
+        .compare-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .compare-bar label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .compare-bar input {
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 3px 7px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--bg-raised);
+            color: var(--text);
+        }
+
+        .compare-bar input[type="number"] { width: 52px; }
+        .compare-bar input[type="text"] { width: 180px; }
+
+        .compare-bar button {
+            font-family: var(--sans);
+            font-size: 11px;
+            padding: 4px 12px;
+            border-radius: var(--radius);
+            border: 1px solid var(--accent);
+            background: var(--accent-dim);
+            color: var(--accent);
+            cursor: pointer;
+            transition: all .12s;
+        }
+
+        .compare-bar button:hover {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .cmp-strip {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 8px 0 4px;
+            scroll-snap-type: x proximity;
+        }
+
+        .cmp-strip::-webkit-scrollbar { height: 5px; }
+        .cmp-strip::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .cmp-token-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .cmp-token-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .cmp-row-label {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--accent);
+            flex-shrink: 0;
+            min-width: 36px;
+            padding-top: 3px;
+        }
+
+        .cmp-token-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            max-height: 72px;
+            overflow-y: auto;
         }
 
         .cmap-legend {
@@ -846,9 +1024,17 @@
         </div>
         <div class="prompt-bar"><strong>Prompt:</strong> <span id="dt-prompt">-</span></div>
         <div class="controls">
-            <div class="ctrl"><label>Layer</label><input type="range" id="layer-sl" min="0" max="0" value="0"><span
-                    class="ctrl-val" id="layer-val">0</span></div>
-            <div class="ctrl"><label>Head</label><select id="head-sel">
+            <div class="ctrl">
+                <label>Layer <span class="info-icon">?<span class="info-tip" id="layer-tip">Drag to change which layer's attention is shown. The histogram shows attention sharpness per layer - how concentrated the selected tokens' attention is across image patches. High bar → the model is focusing on specific regions. Low bar → attention is spread roughly uniformly</span></span></label>
+                <div class="layer-slider-stack">
+                    <div class="sparkline-label">attention sharpness · per layer</div>
+                    <canvas id="layer-sparkline" width="150" height="28"></canvas>
+                    <input type="range" id="layer-sl" min="0" max="0" value="0">
+                    <div class="layer-endpoints"><span>Early</span><span>Late</span></div>
+                </div>
+                <span class="ctrl-val" id="layer-val">0</span>
+            </div>
+            <div class="ctrl" id="head-ctrl"><label>Head</label><select id="head-sel">
                     <option value="avg" selected>Avg</option>
                 </select></div>
             <div class="ctrl"><label>Opacity</label><input type="range" id="opac-sl" min="0" max="100" value="55"><span
@@ -874,6 +1060,13 @@
             </div>
             <div class="token-bar" id="fwd-tokens"></div>
             <div class="frame-strip" id="fwd-frames"></div>
+            <div class="compare-bar">
+                <span class="view-tag view-tag-fwd" style="font-size:8px">COMPARE LAYERS</span>
+                <label>Frame</label><input type="number" id="fwd-cmp-frame" min="0" value="0">
+                <label>Layers</label><input type="text" id="fwd-cmp-layers" placeholder="e.g. 0, 8, 16, 27">
+                <button id="fwd-cmp-btn">Compare</button>
+            </div>
+            <div class="cmp-strip hidden" id="fwd-cmp-strip"></div>
         </div>
         <!-- Parallel Coordinates panel -->
         <div class="view-panel hidden" id="pc-panel">
@@ -900,6 +1093,12 @@
             </div>
             <div class="frame-strip bwd-strip" id="bwd-frames"></div>
             <div class="token-bar" id="bwd-tokens" style="margin-top:10px"></div>
+            <div class="compare-bar">
+                <span class="view-tag view-tag-bwd" style="font-size:8px">COMPARE LAYERS</span>
+                <label>Layers</label><input type="text" id="bwd-cmp-layers" placeholder="e.g. 0, 8, 16, 27">
+                <button id="bwd-cmp-btn">Compare</button>
+            </div>
+            <div class="cmp-token-rows hidden" id="bwd-cmp-rows"></div>
         </div>
     </div>
 
@@ -1068,10 +1267,14 @@
             bwdPatches.clear(); bwdScores = null; bwdScoresNorm = null; bwdImgs = []; bwdCanvases = [];
             document.getElementById("fwd-tokens").innerHTML = ""; document.getElementById("fwd-frames").innerHTML = "";
             document.getElementById("bwd-tokens").innerHTML = ""; document.getElementById("bwd-frames").innerHTML = "";
+            document.getElementById("fwd-cmp-strip").innerHTML = ""; document.getElementById("fwd-cmp-strip").classList.add("hidden");
+            document.getElementById("bwd-cmp-rows").innerHTML = ""; document.getElementById("bwd-cmp-rows").classList.add("hidden");
             // Switch
             curMode = newMode;
             document.getElementById("fwd-panel").classList.toggle("hidden", curMode === "backward");
             document.getElementById("bwd-panel").classList.toggle("hidden", curMode === "forward");
+            document.getElementById("pc-panel").classList.add("hidden");
+            updateLayerTooltip();
             updateSwitchBtn();
             // Build new mode (data already loaded, no refetch needed)
             if (curMode === "forward") { buildFwdTokens(); await loadFwdFrames(); fwdSel.add(0); updateFwdTokenUI(); doForward(); }
@@ -1085,6 +1288,8 @@
             attnAvg = null; compMask = null; compCumsum = null;
             document.getElementById("fwd-tokens").innerHTML = ""; document.getElementById("fwd-frames").innerHTML = "";
             document.getElementById("bwd-tokens").innerHTML = ""; document.getElementById("bwd-frames").innerHTML = "";
+            document.getElementById("fwd-cmp-strip").innerHTML = ""; document.getElementById("fwd-cmp-strip").classList.add("hidden");
+            document.getElementById("bwd-cmp-rows").innerHTML = ""; document.getElementById("bwd-cmp-rows").classList.add("hidden");
             document.getElementById("head-sel").innerHTML = '<option value="avg" selected>Avg</option>';
         }
 
@@ -1118,6 +1323,9 @@
             document.getElementById("dt-prompt").textContent = M.prompt;
             const ls = document.getElementById("layer-sl"); ls.max = M.num_layers - 1; ls.value = M.num_layers - 1;
             document.getElementById("layer-val").textContent = ls.value;
+            document.getElementById("fwd-cmp-frame").max = M.num_frames - 1;
+            const headSel = document.getElementById("head-sel");
+            document.getElementById("head-ctrl").classList.toggle("hidden", headSel.options.length <= 1);
 
             document.getElementById("fwd-panel").classList.toggle("hidden", curMode === "backward");
             document.getElementById("bwd-panel").classList.toggle("hidden", curMode === "forward");
@@ -1125,7 +1333,7 @@
 
             if (curMode === "forward") { buildFwdTokens(); await loadFwdFrames(); fwdSel.add(0); updateFwdTokenUI(); doForward(); }
             if (curMode === "backward") { buildBwdTokens(); await loadBwdFrames(); }
-            showView("detail"); document.getElementById("loading").classList.add("hidden"); drawCmapBar();
+            showView("detail"); document.getElementById("loading").classList.add("hidden"); drawCmapBar(); drawLayerSparkline(); updateLayerTooltip();
         }
 
         // ═══ Forward ═══
@@ -1133,7 +1341,7 @@
         function onFwdClick(i, e) { if (e.shiftKey && fwdLast !== null) { const lo = Math.min(fwdLast, i), hi = Math.max(fwdLast, i); for (let j = lo; j <= hi; j++)fwdSel.add(j); } else { if (fwdSel.has(i)) fwdSel.delete(i); else fwdSel.add(i); } fwdLast = i; updateFwdTokenUI(); doForward(); }
         function updateFwdTokenUI() { document.querySelectorAll("#fwd-tokens .tok").forEach(d => d.classList.toggle("fwd-sel", fwdSel.has(+d.dataset.i))); document.getElementById("fwd-stat").textContent = `${fwdSel.size} selected`; }
         async function loadFwdFrames() { const strip = document.getElementById("fwd-frames"); strip.innerHTML = ""; fwdImgs = []; fwdCanvases = []; for (let i = 0; i < M.num_frames; i++) { const tg = Math.floor(i / M.temporal_merge_factor); const card = document.createElement("div"); card.className = "fcard"; card.innerHTML = `<div class="fcard-head"><span class="ft">Frame ${i}</span><span class="tg">TG ${tg}</span></div><div class="fcard-canvas"><canvas id="fc-${i}"></canvas></div><div class="fcard-foot"><span>Attn</span><span class="sv" id="fs-${i}">-</span></div>`; strip.appendChild(card); const img = new Image(); img.crossOrigin = "anonymous"; img.src = dataPath(curModel, curVideo, `frames/frame_${String(i).padStart(3, '0')}.png`); fwdImgs.push(img); await new Promise(r => { img.onload = r; img.onerror = r; }); const c = document.getElementById(`fc-${i}`); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext("2d").drawImage(img, 0, 0); fwdCanvases.push(c); } }
-        function doForward() { if (fwdSel.size === 0) { fwdHeatmaps = null; renderFwdFrames(); document.getElementById('pc-panel').classList.add('hidden'); return; } const layer = +document.getElementById("layer-sl").value; const steps = Array.from(fwdSel).sort((a, b) => a - b); fwdHeatmaps = computeForwardHeatmaps(steps, layer, fwdAgg); renderFwdFrames(); refreshPC(); }
+        function doForward() { if (fwdSel.size === 0) { fwdHeatmaps = null; renderFwdFrames(); document.getElementById('pc-panel').classList.add('hidden'); drawLayerSparkline(); return; } const layer = +document.getElementById("layer-sl").value; const steps = Array.from(fwdSel).sort((a, b) => a - b); fwdHeatmaps = computeForwardHeatmaps(steps, layer, fwdAgg); renderFwdFrames(); refreshPC(); drawLayerSparkline(); }
         function renderFwdFrames() { const opac = parseInt(document.getElementById("opac-sl").value) / 100; for (let i = 0; i < M.num_frames; i++) { const c = fwdCanvases[i]; if (!c) continue; const ctx = c.getContext("2d"); const img = fwdImgs[i]; ctx.clearRect(0, 0, c.width, c.height); if (img.complete && img.naturalWidth > 0) ctx.drawImage(img, 0, 0); const sEl = document.getElementById(`fs-${i}`); if (!fwdHeatmaps || fwdSel.size === 0) { if (sEl) sEl.textContent = "-"; continue; } const tg = Math.floor(i / M.temporal_merge_factor); const hm = fwdHeatmaps[tg]; if (!hm) continue; const hp = M.h_patches, wp = M.w_patches, cW = c.width / wp, cH = c.height / hp; ctx.globalAlpha = opac; let sum = 0; for (let r = 0; r < hp; r++)for (let cl = 0; cl < wp; cl++) { const v = hm[r][cl]; sum += v; const [cr, cg, cb] = cc(v, cmap); ctx.fillStyle = `rgb(${cr},${cg},${cb})`; ctx.fillRect(cl * cW, r * cH, cW + .5, cH + .5); } ctx.globalAlpha = 1; if (sEl) sEl.textContent = sum.toFixed(4); } }
 
         // ═══ Backward ═══
@@ -1147,11 +1355,11 @@
         function updateBwdStat() { document.getElementById("bwd-stat").textContent = `${bwdPatches.size} patches`; }
         let bwdTimer = null; function doBackwardDebounced() { clearTimeout(bwdTimer); bwdTimer = setTimeout(doBackward, 80); }
         function doBackward() {
-            if (bwdPatches.size === 0) { bwdScores = null; bwdScoresNorm = null; renderBwdTokens(); return; }
+            if (bwdPatches.size === 0) { bwdScores = null; bwdScoresNorm = null; renderBwdTokens(); drawLayerSparkline(); return; }
             const layer = +document.getElementById("layer-sl").value;
             const patches = []; for (const k of bwdPatches) { const [tg, r, c] = k.split(":").map(Number); patches.push({ tg, row: r, col: c }); }
             const res = computeBackwardScores(patches, layer, bwdAgg);
-            bwdScores = res.scores; bwdScoresNorm = res.norm; renderBwdTokens();
+            bwdScores = res.scores; bwdScoresNorm = res.norm; renderBwdTokens(); drawLayerSparkline();
         }
         function renderBwdTokens() { for (let i = 0; i < M.num_gen_steps; i++) { const el = document.getElementById(`bt-${i}`); const tip = document.getElementById(`btp-${i}`); if (!el) continue; if (!bwdScoresNorm || bwdPatches.size === 0) { el.style.background = "var(--bg-raised)"; el.style.color = "var(--text)"; el.style.borderColor = "var(--border)"; if (tip) tip.textContent = "-"; continue; } const n = bwdScoresNorm[i], raw = bwdScores[i]; const [r, g, b] = cc(n, cmap); el.style.background = `rgb(${r},${g},${b})`; el.style.borderColor = `rgba(${r},${g},${b},0.7)`; const lum = .299 * r + .587 * g + .114 * b; el.style.color = lum > 140 ? "#0a0b10" : "#e8eaf0"; if (tip) tip.textContent = raw.toExponential(3); } }
 
@@ -1362,13 +1570,185 @@
             refreshPC();
         });
 
+        // ═══ Layer Compare ═══
+        function parseLayers(str) {
+            return str.split(",").map(s => s.trim()).filter(Boolean)
+                .map(Number).filter(n => !isNaN(n) && n >= 0 && n < M.num_layers)
+                .filter((v, i, a) => a.indexOf(v) === i);
+        }
+
+        function runFwdCompare() {
+            const strip = document.getElementById("fwd-cmp-strip");
+            strip.innerHTML = "";
+            if (!M || fwdSel.size === 0) {
+                strip.innerHTML = '<span style="font-size:11px;color:var(--text-dim);font-family:var(--mono)">Select tokens first.</span>';
+                strip.classList.remove("hidden");
+                return;
+            }
+            const fi = Math.max(0, Math.min(M.num_frames - 1, +document.getElementById("fwd-cmp-frame").value));
+            const layers = parseLayers(document.getElementById("fwd-cmp-layers").value);
+            if (layers.length === 0) return;
+
+            const steps = Array.from(fwdSel).sort((a, b) => a - b);
+            const tg = Math.floor(fi / M.temporal_merge_factor);
+            const opac = parseInt(document.getElementById("opac-sl").value) / 100;
+            const img = fwdImgs[fi];
+            strip.classList.remove("hidden");
+
+            layers.forEach(L => {
+                const heatmaps = computeForwardHeatmaps(steps, L, fwdAgg);
+                const hm = heatmaps[tg];
+
+                const cvs = document.createElement("canvas");
+                cvs.width = (img && img.naturalWidth > 0) ? img.naturalWidth : 320;
+                cvs.height = (img && img.naturalHeight > 0) ? img.naturalHeight : 180;
+                cvs.style.cssText = "width:100%;display:block";
+                const ctx = cvs.getContext("2d");
+                if (img && img.complete && img.naturalWidth > 0) ctx.drawImage(img, 0, 0);
+                if (hm) {
+                    const hp = M.h_patches, wp = M.w_patches;
+                    const cW = cvs.width / wp, cH = cvs.height / hp;
+                    ctx.globalAlpha = opac;
+                    for (let r = 0; r < hp; r++) for (let cl = 0; cl < wp; cl++) {
+                        const [cr, cg, cb] = cc(hm[r][cl], cmap);
+                        ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+                        ctx.fillRect(cl * cW, r * cH, cW + .5, cH + .5);
+                    }
+                    ctx.globalAlpha = 1;
+                }
+
+                const canvasWrap = document.createElement("div"); canvasWrap.className = "fcard-canvas";
+                canvasWrap.appendChild(cvs);
+                const card = document.createElement("div");
+                card.className = "fcard";
+                card.style.cssText = "width:180px;flex-shrink:0;scroll-snap-align:start";
+                card.innerHTML = `<div class="fcard-head"><span class="ft">Frame ${fi}</span><span class="tg" style="background:var(--accent-dim);color:var(--accent);font-weight:600">Layer ${L}</span></div>`;
+                card.appendChild(canvasWrap);
+                strip.appendChild(card);
+            });
+        }
+
+        function runBwdCompare() {
+            const rows = document.getElementById("bwd-cmp-rows");
+            rows.innerHTML = "";
+            if (!M || bwdPatches.size === 0) {
+                rows.innerHTML = '<span style="font-size:11px;color:var(--text-dim);font-family:var(--mono)">Select patches first.</span>';
+                rows.classList.remove("hidden");
+                return;
+            }
+            const layers = parseLayers(document.getElementById("bwd-cmp-layers").value);
+            if (layers.length === 0) return;
+
+            const patches = [];
+            for (const k of bwdPatches) { const [tg, r, c] = k.split(":").map(Number); patches.push({ tg, row: r, col: c }); }
+            rows.classList.remove("hidden");
+
+            layers.forEach(L => {
+                const res = computeBackwardScores(patches, L, bwdAgg);
+                const row = document.createElement("div"); row.className = "cmp-token-row";
+                const lbl = document.createElement("div"); lbl.className = "cmp-row-label"; lbl.textContent = `L${L}`;
+                const wrap = document.createElement("div"); wrap.className = "cmp-token-wrap";
+
+                M.generated_tokens.forEach((t, i) => {
+                    const el = document.createElement("div"); el.className = "tok-heat";
+                    const txt = t.replace(/ /g, "·").replace(/\n/g, "↵") || "·";
+                    el.innerHTML = `<span class="ix">${i}</span>${esc(txt)}`;
+                    if (res.norm && res.norm.length > i) {
+                        const n = res.norm[i];
+                        const [r, g, b] = cc(n, cmap);
+                        el.style.background = `rgb(${r},${g},${b})`;
+                        el.style.borderColor = `rgba(${r},${g},${b},0.7)`;
+                        const lum = .299 * r + .587 * g + .114 * b;
+                        el.style.color = lum > 140 ? "#0a0b10" : "#e8eaf0";
+                        el.title = res.scores[i].toExponential(3);
+                    }
+                    wrap.appendChild(el);
+                });
+
+                row.appendChild(lbl); row.appendChild(wrap);
+                rows.appendChild(row);
+            });
+        }
+
+        // ═══ Layer Sparkline ═══
+        const LAYER_TIP_FWD = "Drag to change which layer's attention is shown. The histogram shows attention sharpness per layer — how concentrated the selected tokens' attention is across image patches. High bar → the model is focusing on specific regions. Low bar → attention is spread roughly uniformly.";
+        const LAYER_TIP_BWD = "Drag to change which layer's attention is shown. Each layer captures a different stage of processing — earlier layers reflect low-level visual features, later layers reflect higher-level semantics.";
+
+        function updateLayerTooltip() {
+            const tip = document.getElementById("layer-tip");
+            if (tip) tip.textContent = curMode === "forward" ? LAYER_TIP_FWD : LAYER_TIP_BWD;
+        }
+
+        function drawLayerSparkline() {
+            const cvs = document.getElementById("layer-sparkline");
+            const lbl = document.querySelector(".sparkline-label");
+            const visible = curMode === "forward";
+            cvs.classList.toggle("hidden", !visible);
+            if (lbl) lbl.classList.toggle("hidden", !visible);
+            if (!visible) return;
+            if (!cvs || !M || !attnAvg) return;
+            const nL = M.num_layers, nV = M.num_video_tokens;
+            const W = 150, H = 28;
+            cvs.width = W; cvs.height = H;
+            const ctx = cvs.getContext("2d");
+            ctx.fillStyle = "#1c1f2a";
+            ctx.fillRect(0, 0, W, H);
+
+            // Entropy-based sharpness per layer: 1 - H/log(N), averaged over selected steps
+            const steps = (curMode === "forward" && fwdSel.size > 0)
+                ? Array.from(fwdSel)
+                : Array.from({ length: M.num_gen_steps }, (_, i) => i);
+
+            const vals = new Float32Array(nL);
+            const logN = Math.log(nV);
+            for (let L = 0; L < nL; L++) {
+                const avg = new Float32Array(nV);
+                for (const s of steps) {
+                    const a = attnGet(s, L);
+                    for (let i = 0; i < nV; i++) avg[i] += a[i];
+                }
+                let sum = 0;
+                for (let i = 0; i < nV; i++) sum += avg[i];
+                if (sum === 0 || logN === 0) { vals[L] = 0; continue; }
+                let H = 0;
+                for (let i = 0; i < nV; i++) {
+                    const p = avg[i] / sum;
+                    if (p > 0) H -= p * Math.log(p);
+                }
+                vals[L] = 1 - H / logN;
+            }
+            let vmax = 0;
+            for (let i = 0; i < nL; i++) if (vals[i] > vmax) vmax = vals[i];
+            if (vmax === 0) vmax = 1;
+
+            const curL = +document.getElementById("layer-sl").value;
+            const barW = W / nL;
+            const maxBarH = H - 8; // leave room for triangle marker at top
+            for (let L = 0; L < nL; L++) {
+                const h = Math.max(1, (vals[L] / vmax) * maxBarH);
+                ctx.fillStyle = L === curL ? "#5b8def" : "#2a3048";
+                ctx.fillRect(L * barW + 0.5, H - h - 2, barW - 0.5, h);
+            }
+            // Triangle marker above current bar
+            const cx = curL * barW + barW / 2;
+            ctx.fillStyle = "#5b8def";
+            ctx.beginPath();
+            ctx.moveTo(cx - 3, 1);
+            ctx.lineTo(cx + 3, 1);
+            ctx.lineTo(cx, 5);
+            ctx.closePath();
+            ctx.fill();
+        }
+
         // ═══ Controls ═══
         document.getElementById("layer-sl").addEventListener("input", function () { document.getElementById("layer-val").textContent = this.value; if (curMode === "forward") doForward(); if (curMode === "backward") doBackward(); });
         document.getElementById("head-sel").addEventListener("change", () => { if (curMode === "forward") doForward(); if (curMode === "backward") doBackward(); });
         document.getElementById("opac-sl").addEventListener("input", function () { document.getElementById("opac-val").textContent = this.value + "%"; if (curMode === "forward") renderFwdFrames(); });
         document.getElementById("cmap-sel").addEventListener("change", function () { cmap = this.value; drawCmapBar(); if (curMode === "forward") renderFwdFrames(); if (curMode === "backward") renderBwdTokens(); });
         document.getElementById("fwd-all").addEventListener("click", () => { for (let i = 0; i < M.num_gen_steps; i++)fwdSel.add(i); updateFwdTokenUI(); doForward(); });
-        document.getElementById("fwd-clear").addEventListener("click", () => { fwdSel.clear(); updateFwdTokenUI(); fwdHeatmaps = null; pcPerTokenHeatmaps = null; renderFwdFrames(); document.getElementById('pc-panel').classList.add('hidden'); });
+        document.getElementById("fwd-clear").addEventListener("click", () => { fwdSel.clear(); updateFwdTokenUI(); fwdHeatmaps = null; pcPerTokenHeatmaps = null; renderFwdFrames(); document.getElementById('pc-panel').classList.add('hidden'); document.getElementById("fwd-cmp-strip").innerHTML = ""; document.getElementById("fwd-cmp-strip").classList.add("hidden"); });
+        document.getElementById("fwd-cmp-btn").addEventListener("click", runFwdCompare);
+        document.getElementById("bwd-cmp-btn").addEventListener("click", runBwdCompare);
         document.querySelectorAll("[data-fwd-agg]").forEach(b => { b.addEventListener("click", function () { document.querySelectorAll("[data-fwd-agg]").forEach(x => x.classList.remove("active")); this.classList.add("active"); fwdAgg = this.dataset.fwdAgg; doForward(); }); });
         document.getElementById("bwd-clear").addEventListener("click", () => { bwdPatches.clear(); redrawBwd(); updateBwdStat(); bwdScores = null; bwdScoresNorm = null; renderBwdTokens(); });
         document.querySelectorAll("[data-bwd-agg]").forEach(b => { b.addEventListener("click", function () { document.querySelectorAll("[data-bwd-agg]").forEach(x => x.classList.remove("active")); this.classList.add("active"); bwdAgg = this.dataset.bwdAgg; doBackward(); }); });
